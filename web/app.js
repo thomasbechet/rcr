@@ -144,6 +144,7 @@ function renderTree(paths) {
       const path = prefix + name + '/';
       const details = element('details', 'tree-folder');
       const summary = element('summary', 'path', name + '/');
+      summary.title = path;
       const contents = element('div', 'tree-children');
       details.append(summary, contents);
       let populated = false;
