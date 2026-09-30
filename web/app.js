@@ -243,24 +243,30 @@ async function showFile(path) {
     heading.append(copyPathButton(file.path, feedback));
     panel.append(heading);
     if (file.notice) panel.append(element('p', 'notice', file.notice));
+    if (!file.content) {
+      const changed = sourceLineChanges(currentSnapshot?.changes || [], file.path, 0);
+      const removed = [...changed.deletions.values()].reduce((total, count) => total + count, 0);
+      if (removed) panel.append(element('p', 'notice', `${removed} line${removed === 1 ? '' : 's'} deleted; no remaining lines to mark.`));
+    }
     if (file.content) {
       const scroll = element('div', 'patch-scroll');
       const table = element('table', 'patch source');
       const body = element('tbody');
       const lines = sourceTokenLines(file.content, file.path);
+      const changed = sourceLineChanges(currentSnapshot?.changes || [], file.path, lines.length);
       const rawLines = file.content.split('\n');
       const copy = element('button', 'copy-lines', 'Copy lines');
       copy.type = 'button'; copy.disabled = true;
       copy.title = 'Select line numbers, then copy their source text';
       heading.append(copy);
       let anchor = null, start = null, end = null;
-      const rows = [], selectors = [];
+      const rows = [], selectors = [], rowKinds = [];
       function selectLine(index, extend) {
         if (anchor === null || !extend) anchor = index;
         start = Math.min(anchor, index); end = Math.max(anchor, index);
         rows.forEach((row, i) => {
           const selected = i >= start && i <= end;
-          row.className = selected ? 'line-selected' : '';
+          row.className = [rowKinds[i], selected ? 'line-selected' : ''].filter(Boolean).join(' ');
           selectors[i].setAttribute('aria-pressed', String(selected));
         });
         copy.disabled = false;
@@ -274,10 +280,24 @@ async function showFile(path) {
         copyText(text, feedback, start === end ? 'Copied line' : 'Copied lines');
       });
       lines.forEach((line, index) => {
-        const row = element('tr');
+        const kind = changed.lines.get(index);
+        const rowKind = kind ? `source-${kind}` : '';
+        const row = element('tr', rowKind);
+        rowKinds.push(rowKind);
         const number = element('td', 'number');
         const selector = element('button', 'line-number', index + 1);
         selector.type = 'button'; selector.title = `Select line ${index + 1} (long-press or Shift-click to extend)`;
+        if (kind) { selector.className += ` source-${kind}`; selector.title += ` — ${kind === 'added' ? 'Added' : 'Modified'} line`; }
+        const deletedBefore = changed.deletions.get(index) || 0;
+        const deletedAfter = index === lines.length - 1 ? changed.deletions.get(lines.length) || 0 : 0;
+        if (deletedBefore) {
+          selector.className += ' source-deleted';
+          selector.title += ` — ${deletedBefore} deleted line(s) before this line`;
+        }
+        if (deletedAfter) {
+          selector.className += ' source-deleted-after';
+          selector.title += ` — ${deletedAfter} deleted line(s) after this line`;
+        }
         selector.setAttribute('aria-label', selector.title); selector.setAttribute('aria-pressed', 'false');
         let press = null, timer = null, suppressClick = false;
         function cancelPress() {

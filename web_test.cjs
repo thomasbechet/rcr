@@ -50,6 +50,7 @@ function setup(changes = []) {
     },
   });
   vm.runInContext(fs.readFileSync('web/syntax.js', 'utf8'), context);
+  vm.runInContext(fs.readFileSync('web/line-changes.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('web/app.js', 'utf8'), context);
   return { nodes, context, calls, snapshot, paths, copied };
 }
@@ -653,4 +654,114 @@ test('clipboard fallback cleans up and reports success or failure without changi
   assert.equal(body.children.length, 0);
   assert.equal(path.textContent, 'unchanged.txt');
   assert.match(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, /Could not copy/);
+});
+
+test('source edit blocks distinguish additions, replacements, and deleted boundaries', async () => {
+  const { context } = setup();
+  await tick();
+  context.sourceChanges = [{ path: 'main.go', section: 'unstaged', status: 'M', diff: '--- a/main.go\n+++ b/main.go\n@@ -1,5 +1,5 @@\n keep\n-old\n+new\n+added\n keep\n-removed\n keep\n' }];
+  const result = vm.runInContext('sourceLineChanges(sourceChanges, "main.go", 5)', context);
+  assert.deepEqual(Array.from(result.lines, entry => [...entry]), [[1, 'modified'], [2, 'added']]);
+  assert.deepEqual(Array.from(result.deletions, entry => [...entry]), [[4, 1]]);
+  context.sourceChanges[0].diff = '@@ -2,2 +1,0 @@\n-last\n-final\n';
+  const eof = vm.runInContext('sourceLineChanges(sourceChanges, "main.go", 1)', context);
+  assert.deepEqual(Array.from(eof.deletions, entry => [...entry]), [[1, 2]]);
+});
+
+test('staged highlights move with unstaged edits and removed staged lines disappear', async () => {
+  const { context } = setup();
+  await tick();
+  context.sourceChanges = [
+    { path: 'main.go', section: 'staged', status: 'M', diff: '@@ -2,2 +2,3 @@\n-old\n+changed\n+inserted\n keep\n' },
+    { path: 'main.go', section: 'unstaged', status: 'M', diff: '@@ -0,0 +1 @@\n+prefix\n@@ -3 +4 @@\n-inserted\n+edited addition\n' },
+  ];
+  let result = vm.runInContext('sourceLineChanges(sourceChanges, "main.go", 6)', context);
+  assert.equal(result.lines.get(0), 'added');
+  assert.equal(result.lines.get(2), 'modified');
+  assert.equal(result.lines.get(3), 'added');
+  assert.equal(result.lines.has(4), false);
+  context.sourceChanges[1].diff = '@@ -2,2 +1,0 @@\n-changed\n-inserted\n';
+  result = vm.runInContext('sourceLineChanges(sourceChanges, "main.go", 2)', context);
+  assert.equal(result.lines.size, 0);
+  assert.deepEqual(Array.from(result.deletions, entry => [...entry]), [[1, 2]]);
+});
+
+test('new files mark every current line as added and unrelated files stay unchanged', async () => {
+  const { context } = setup();
+  await tick();
+  for (const status of ['A', '?']) {
+    context.sourceChanges = [{ path: 'main.go', section: status === 'A' ? 'staged' : 'untracked', status, diff: '' }];
+    const result = vm.runInContext('sourceLineChanges(sourceChanges, "main.go", 3)', context);
+    assert.deepEqual(Array.from(result.lines, entry => [...entry]), [[0, 'added'], [1, 'added'], [2, 'added']]);
+    const other = vm.runInContext('sourceLineChanges(sourceChanges, "other.go", 3)', context);
+    assert.equal(other.lines.size, 0);
+    assert.equal(other.deletions.size, 0);
+  }
+});
+
+test('multiple hunks shift staged deletions and metadata-only changes mark no source lines', async () => {
+  const { context } = setup();
+  await tick();
+  context.sourceChanges = [
+    { path: 'main.go', section: 'staged', status: 'M', diff: '@@ -2 +1,0 @@\n-deleted\n@@ -8 +7 @@\n-old\n+updated\n\\ No newline at end of file\n' },
+    { path: 'main.go', section: 'unstaged', status: 'M', diff: '@@ -0,0 +1,2 @@\n+one\n+two\n' },
+  ];
+  const result = vm.runInContext('sourceLineChanges(sourceChanges, "main.go", 10)', context);
+  assert.equal(result.lines.get(8), 'modified');
+  assert.equal(result.deletions.get(3), 1);
+  for (const diff of ['diff --git a/old.go b/main.go\nsimilarity index 100%\nrename from old.go\nrename to main.go\n', 'Binary files a/main.go and b/main.go differ\n', 'old mode 100644\nnew mode 100755\n']) {
+    context.sourceChanges = [{ path: 'main.go', section: 'staged', status: 'R', diff }];
+    const metadata = vm.runInContext('sourceLineChanges(sourceChanges, "main.go", 2)', context);
+    assert.equal(metadata.lines.size, 0);
+    assert.equal(metadata.deletions.size, 0);
+  }
+});
+
+test('file preview highlights changes while preserving syntax, selection, and copying', async () => {
+  const { nodes, context, copied, snapshot } = setup([
+    { path: 'main.go', section: 'unstaged', status: 'M', diff: '@@ -1,3 +1,3 @@\n package main\n-var old = 1\n+var next = 2\n+var added = 3\n-removed\n' },
+  ]);
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  context.fetch = async () => ({ ok: true, json: async () => ({ path: 'main.go', content: 'package main\nvar next = 2\nvar added = 3\n' }) });
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const rows = nodes.get('diffs').querySelectorAll('.source')[0].children[0].children;
+  assert.equal(rows[0].className, '');
+  assert.equal(rows[1].className, 'source-modified');
+  assert.equal(rows[2].className, 'source-modified');
+  assert.equal(rows[1].querySelectorAll('.syntax-keyword')[0].textContent, 'var');
+  const selectors = nodes.get('diffs').querySelectorAll('.line-number');
+  selectors[1].listeners.click();
+  assert.equal(rows[1].className, 'source-modified line-selected');
+  selectors[2].listeners.click({ shiftKey: true });
+  nodes.get('diffs').querySelectorAll('.copy-lines')[0].listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), 'var next = 2\nvar added = 3\n');
+  snapshot.changes.length = 0;
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  assert.equal(nodes.get('diffs').querySelectorAll('.source-modified').length, 0);
+});
+
+test('deletions at EOF get a gutter marker and empty files get a deletion notice', async () => {
+  const { nodes, context } = setup([
+    { path: 'main.go', section: 'unstaged', status: 'M', diff: '@@ -1,2 +1 @@\n keep\n-deleted\n' },
+  ]);
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  context.fetch = async () => ({ ok: true, json: async () => ({ path: 'main.go', content: 'keep\n' }) });
+  const file = nodes.get('files').querySelectorAll('.tree-file')[0];
+  file.listeners.click();
+  await tick();
+  const selector = nodes.get('diffs').querySelectorAll('.source-deleted-after')[0];
+  assert.match(selector.title, /1 deleted line\(s\) after/);
+  context.fetch = async () => ({ ok: true, json: async () => ({ path: 'main.go', content: '', notice: 'Empty file' }) });
+  context.currentChanges = [{ path: 'main.go', section: 'unstaged', status: 'M', diff: '@@ -1,2 +0,0 @@\n-first\n-second\n' }];
+  vm.runInContext('currentSnapshot.changes = currentChanges', context);
+  file.listeners.click();
+  await tick();
+  assert.ok(nodes.get('diffs').querySelectorAll('.notice').some(node => /2 lines deleted/.test(node.textContent)));
 });

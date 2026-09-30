@@ -28,6 +28,8 @@ Switch to **Files** to browse expandable folders and view current file contents 
 
 File previews include lightweight syntax highlighting for Go, Zig, JavaScript/TypeScript (including JSX/TSX), Python, Rust, C/C++, Java, C#, Ruby, shell scripts, SQL, JSON, YAML, CSS/SCSS/Less, and HTML/XML/SVG. Languages are selected by file extension; Python and shell shebangs are also recognized. Other files remain plain text. Highlighting is lexical, not a full parser; embedded languages and template expressions are not highlighted separately.
 
+Files previews also mark added lines in green and modified lines in amber, using the latest change snapshot. A red line-number gutter marker shows where lines were deleted; hover or focus a line-number button for change details. Staged changes are translated through unstaged edits to align with current file contents. Use **Refresh** after editing to update these markers. Selecting lines temporarily replaces the row background but retains gutter change markers.
+
 ## Remote access
 
 Run `rcr 127.0.0.1:8080` on the remote machine, then forward its port from your local machine:

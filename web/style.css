@@ -58,6 +58,12 @@ summary .badge { margin-right: 8px; }
 .source .number { padding: 0; }
 .line-number { display: block; width: 100%; border: 0; border-radius: 0; padding: 0 6px; background: transparent; color: inherit; text-align: right; font: inherit; }
 .line-number:hover, .line-number[aria-pressed="true"] { background: #2b5075; color: #e5f2ff; }
+.source .source-added { background: #143425; }
+.source .source-modified { background: #3a3020; }
+.line-number.source-added { box-shadow: inset 3px 0 #80d5a1; }
+.line-number.source-modified { box-shadow: inset 3px 0 #edc780; }
+.line-number.source-deleted { border-top: 2px solid #f49ca1; }
+.line-number.source-deleted-after { border-bottom: 2px solid #f49ca1; }
 .source .line-selected { background: #203b57; }
 .code { white-space: pre; tab-size: 4; }
 .syntax-keyword { color: #c4a5f5; }
