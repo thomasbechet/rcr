@@ -33,7 +33,9 @@ function setup(changes = []) {
   const snapshot = { repository: '/repo', updatedAt: new Date().toISOString(), changes };
   const paths = ['unchanged.txt', 'src/new + #.js'];
   const calls = [];
+  const copied = [];
   const context = vm.createContext({
+    navigator: { clipboard: { writeText: async text => { copied.push(text); } } },
     document: {
       getElementById(id) { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); },
       createElement(tag) { return new Node(tag); },
@@ -48,7 +50,7 @@ function setup(changes = []) {
   });
   vm.runInContext(fs.readFileSync('web/syntax.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('web/app.js', 'utf8'), context);
-  return { nodes, context, calls, snapshot, paths };
+  return { nodes, context, calls, snapshot, paths, copied };
 }
 
 test('browse folders and unchanged files, then return to diffs', async () => {
@@ -237,7 +239,7 @@ test('Open in Files reveals a nested renamed file and preserves the selected dif
   assert.equal(selected.attributes['aria-current'], 'true');
   assert.equal(selected.focused, true);
   assert.equal(selected.scrolledIntoView.block, 'nearest');
-  assert.equal(nodes.get('diffs').children[0].children[0].textContent, path);
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-path')[0].textContent, path);
   nodes.get('changes-view').listeners.click();
   assert.equal(nodes.get('files').querySelectorAll('.file-link')[0].attributes['aria-current'], 'true');
   assert.match(nodes.get('diffs').children[0].children[0].children[1].textContent, /old.go →/);
@@ -382,7 +384,7 @@ test('file previews render highlighted source safely with unchanged line numbers
   await tick();
   const rows = nodes.get('diffs').querySelectorAll('.source')[0].children[0].children;
   assert.equal(rows.length, 3);
-  assert.deepEqual(rows.map(row => row.children[0].textContent), [1, 2, 3]);
+  assert.deepEqual(rows.map(row => row.children[0].children[0].textContent), [1, 2, 3]);
   assert.equal(rows[0].querySelectorAll('.syntax-keyword')[0].textContent, 'package');
   assert.equal(rows[1].querySelectorAll('.syntax-string')[0].textContent, '`<script>');
   assert.equal(rows[2].querySelectorAll('.syntax-string')[0].textContent, 'unsafe</script>`');
@@ -440,4 +442,112 @@ test('language aliases, uppercase extensions, and script shebangs select a lexer
   context.sourceContent = 'plain text';
   const tokens = vm.runInContext('sourceTokens(sourceContent, "file.constructor")', context);
   assert.equal(tokens[0].kind, '');
+});
+
+test('header paths copy repository-relative paths in both views, including rename destinations', async () => {
+  const { nodes, copied } = setup([
+    { path: 'src/new + #.js', oldPath: 'old.js', section: 'staged', status: 'R', diff: '' },
+  ]);
+  await tick();
+  nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+  const path = nodes.get('diffs').querySelectorAll('.copy-path')[0];
+  assert.equal(path.textContent, 'old.js → src/new + #.js');
+  await path.listeners.click();
+  assert.deepEqual(copied, ['src/new + #.js']);
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, 'Copied path');
+  nodes.get('diffs').querySelectorAll('.open-in-files')[0].listeners.click();
+  await tick();
+  await nodes.get('diffs').querySelectorAll('.copy-path')[0].listeners.click();
+  assert.deepEqual(copied, ['src/new + #.js', 'src/new + #.js']);
+});
+
+test('line selection copies exact source text, supports reverse ranges, and resets per file', async () => {
+  const { nodes, context, copied } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  context.fetch = async () => ({ ok: true, json: async () => ({ path: 'main.go', content: 'package main\r\n\tvar s = "<script>"\r\n\r\nlast' }) });
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const selectors = nodes.get('diffs').querySelectorAll('.line-number');
+  const rows = nodes.get('diffs').querySelectorAll('.source')[0].children[0].children;
+  const copy = nodes.get('diffs').querySelectorAll('.copy-lines')[0];
+  assert.equal(copy.disabled, true);
+  selectors[1].listeners.click({ shiftKey: false });
+  assert.equal(selectors[1].attributes['aria-pressed'], 'true');
+  assert.equal(rows[1].className, 'line-selected');
+  assert.equal(copy.textContent, 'Copy line 2');
+  copy.listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), '\tvar s = "<script>"\r\n');
+  selectors[3].listeners.click({ shiftKey: false });
+  selectors[1].listeners.click({ shiftKey: true });
+  assert.equal(copy.textContent, 'Copy lines 2–4');
+  assert.deepEqual(selectors.map(selector => selector.attributes['aria-pressed']), ['false', 'true', 'true', 'true']);
+  copy.listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), '\tvar s = "<script>"\r\n\r\nlast');
+  selectors[2].listeners.click();
+  copy.listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), '\r\n');
+  assert.deepEqual(selectors.map(selector => selector.attributes['aria-pressed']), ['false', 'false', 'true', 'false']);
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-lines')[0].disabled, true);
+  assert.ok(nodes.get('diffs').querySelectorAll('.line-number').every(selector => selector.attributes['aria-pressed'] === 'false'));
+});
+
+test('keyboard line selection extends ranges and preserves trailing newlines', async () => {
+  const { nodes, copied } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const selectors = nodes.get('diffs').querySelectorAll('.line-number');
+  let prevented = 0;
+  selectors[0].listeners.keydown({ key: 'Enter', shiftKey: false, preventDefault() { prevented++; } });
+  selectors[1].listeners.keydown({ key: ' ', shiftKey: true, preventDefault() { prevented++; } });
+  assert.equal(prevented, 2);
+  nodes.get('diffs').querySelectorAll('.copy-lines')[0].listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), '<script>safe text</script>\nsecond line\n');
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, 'Copied lines');
+});
+
+test('clipboard fallback cleans up and reports success or failure without changing the path', async () => {
+  const { nodes, context } = setup([{ path: 'unchanged.txt', section: 'unstaged', status: 'M', diff: '' }]);
+  await tick();
+  nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+  const body = new Node('body');
+  const buffers = [];
+  context.document.body = body;
+  const create = context.document.createElement;
+  context.document.createElement = tag => {
+    const node = create(tag);
+    if (tag === 'textarea') {
+      buffers.push(node);
+      node.select = () => { node.selected = true; };
+      node.remove = () => { body.children = body.children.filter(child => child !== node); };
+    }
+    return node;
+  };
+  const active = new Node('button');
+  context.document.activeElement = active;
+  context.navigator.clipboard.writeText = async () => { throw new Error('Permission denied'); };
+  context.document.execCommand = command => command === 'copy';
+  const path = nodes.get('diffs').querySelectorAll('.copy-path')[0];
+  await path.listeners.click();
+  assert.equal(buffers[0].value, 'unchanged.txt');
+  assert.equal(buffers[0].selected, true);
+  assert.equal(body.children.length, 0);
+  assert.equal(active.focused, true);
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, 'Copied path');
+  context.navigator = undefined; // Non-secure remote HTTP can lack the modern API.
+  context.document.execCommand = () => false;
+  await path.listeners.click();
+  assert.equal(body.children.length, 0);
+  assert.equal(path.textContent, 'unchanged.txt');
+  assert.match(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, /Could not copy/);
 });

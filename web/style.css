@@ -34,8 +34,13 @@ nav .badge, nav .diff-stats { font-size: 10px; }
 .diff-stats { display: inline-flex; gap: 5px; flex-shrink: 0; margin-left: auto; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
 .stat-added { color: #80d5a1; }
 .stat-deleted { color: #f49ca1; }
-.viewer-heading { display: flex; align-items: baseline; gap: 6px; }
-.viewer-heading .open-in-files { flex-shrink: 0; padding: 2px 6px; font-size: 11px; }
+.viewer-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.viewer-heading .open-in-files, .viewer-heading .copy-lines { flex-shrink: 0; padding: 2px 6px; font-size: 11px; }
+.viewer-heading .copy-path { background: transparent; border: 0; padding: 0; color: inherit; text-align: left; white-space: normal; font-size: inherit; }
+.viewer-heading .copy-path:hover { color: #8bc5ff; text-decoration: underline; }
+.copy-feedback { color: #9aaabd; font-size: 11px; font-weight: normal; }
+.copy-feedback:empty { display: none; }
+.clipboard-buffer { position: fixed; left: -9999px; top: 0; opacity: 0; }
 .viewer-heading .badge { margin-right: 2px; }
 .path { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .badge { flex-shrink: 0; font-size: 11px; color: #edc780; font-weight: 600; }
@@ -48,6 +53,10 @@ summary .badge { margin-right: 8px; }
 .patch { border-collapse: collapse; font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; width: 100%; }
 .patch td { padding: 0 6px; vertical-align: top; }
 .number { text-align: right; color: #8c9eb1; width: 36px; min-width: 36px; user-select: none; border-right: 1px solid #ffffff0b; }
+.source .number { padding: 0; }
+.line-number { display: block; width: 100%; border: 0; border-radius: 0; padding: 0 6px; background: transparent; color: inherit; text-align: right; font: inherit; }
+.line-number:hover, .line-number[aria-pressed="true"] { background: #2b5075; color: #e5f2ff; }
+.source .line-selected { background: #203b57; }
 .code { white-space: pre; tab-size: 4; }
 .syntax-keyword { color: #c4a5f5; }
 .syntax-type, .syntax-builtin, .syntax-property { color: #8bc5ff; }

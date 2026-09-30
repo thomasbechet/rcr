@@ -16,6 +16,8 @@ Click a file in the changed-file list to view its diff. Only the selected diff i
 
 Click **Open in Files** in a diff heading to view the file's current contents in the Files tab. Its parent folders expand and its tree entry is selected and brought into view. Returning to Changes keeps your diff selection. Files no longer on disk show an unavailable notice instead; their diffs remain in Changes.
 
+Click a file path in a diff or file-preview heading to copy its repository-relative path. In a file preview, click a line number to select that line, or Shift-click another line number to select a range, then click **Copy lines**. Line-number buttons also work with Enter/Space (hold Shift to extend). Copying preserves source indentation and line endings, without line numbers or highlighting markup.
+
 Each changed file shows green **+added** and red **−deleted** line totals in the sidebar and diff heading. Counts exclude diff metadata and context lines; binary and metadata-only changes show zero textual changes.
 
 The compact header stays visible while the file list and content pane scroll independently. Long repository paths are shortened visually; hover to see the full path. On narrow screens the header uses two rows.

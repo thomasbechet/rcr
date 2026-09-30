@@ -37,6 +37,50 @@ function changeStats(change) {
   return stats;
 }
 
+async function writeClipboard(text) {
+  if (globalThis.navigator?.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return; }
+    catch { /* Plain HTTP and denied permissions may need the legacy API. */ }
+  }
+  const active = document.activeElement;
+  const selection = globalThis.getSelection?.();
+  const ranges = selection ? Array.from({ length: selection.rangeCount }, (_, i) => selection.getRangeAt(i).cloneRange()) : [];
+  const buffer = element('textarea', 'clipboard-buffer');
+  buffer.value = text; buffer.setAttribute('readonly', '');
+  document.body.append(buffer);
+  try {
+    buffer.select();
+    if (!document.execCommand('copy')) throw new Error('Clipboard access is unavailable');
+  } finally {
+    buffer.remove();
+    active?.focus({ preventScroll: true });
+    if (selection) {
+      selection.removeAllRanges();
+      for (const range of ranges) selection.addRange(range);
+    }
+  }
+}
+
+async function copyText(text, feedback, message) {
+  feedback.textContent = 'Copying…';
+  try { await writeClipboard(text); feedback.textContent = message; }
+  catch { feedback.textContent = 'Could not copy. Select the text and copy manually.'; }
+}
+
+function copyFeedback() {
+  const feedback = element('span', 'copy-feedback');
+  feedback.setAttribute('role', 'status');
+  return feedback;
+}
+
+function copyPathButton(path, feedback, label = path) {
+  const button = element('button', 'path copy-path', label);
+  button.type = 'button'; button.title = `Copy repository-relative path: ${path}`;
+  button.setAttribute('aria-label', button.title);
+  button.addEventListener('click', () => copyText(path, feedback, 'Copied path'));
+  return button;
+}
+
 function renderPatch(text) {
   const table = element('table', 'patch');
   const body = document.createElement('tbody');
@@ -106,11 +150,12 @@ function showChange(change) {
   }
   const panel = element('article', 'file');
   const heading = element('h2', 'viewer-heading');
-  heading.append(element('span', `badge status-${change.status}`, `${labels[change.section]} · ${statuses[change.status] || change.status}`), element('span', 'path', change.oldPath ? `${change.oldPath} → ${change.path}` : change.path), changeStats(change));
+  const feedback = copyFeedback();
+  heading.append(element('span', `badge status-${change.status}`, `${labels[change.section]} · ${statuses[change.status] || change.status}`), copyPathButton(change.path, feedback, change.oldPath ? `${change.oldPath} → ${change.path}` : change.path), changeStats(change));
   const open = element('button', 'open-in-files', 'Open in Files');
   open.type = 'button'; open.title = `View current contents of ${change.path}`;
   open.addEventListener('click', () => openInFiles(change.path));
-  heading.append(open);
+  heading.append(open, feedback);
   panel.append(heading);
   if (change.notice) panel.append(element('p', 'notice', change.notice));
   if (change.diff) {
@@ -193,24 +238,63 @@ async function showFile(path) {
     const file = await requestJSON('/api/file?path=' + encodeURIComponent(path));
     if (request !== fileRequest || view !== 'files') return;
     const panel = element('article', 'file');
-    panel.append(element('h2', 'viewer-heading path', file.path));
+    const heading = element('h2', 'viewer-heading');
+    const feedback = copyFeedback();
+    heading.append(copyPathButton(file.path, feedback));
+    panel.append(heading);
     if (file.notice) panel.append(element('p', 'notice', file.notice));
     if (file.content) {
       const scroll = element('div', 'patch-scroll');
       const table = element('table', 'patch source');
       const body = element('tbody');
       const lines = sourceTokenLines(file.content, file.path);
+      const rawLines = file.content.split('\n');
+      const copy = element('button', 'copy-lines', 'Copy lines');
+      copy.type = 'button'; copy.disabled = true;
+      copy.title = 'Click a line number; Shift-click another to select a range';
+      heading.append(copy);
+      let anchor = null, start = null, end = null;
+      const rows = [], selectors = [];
+      function selectLine(index, extend) {
+        if (anchor === null || !extend) anchor = index;
+        start = Math.min(anchor, index); end = Math.max(anchor, index);
+        rows.forEach((row, i) => {
+          const selected = i >= start && i <= end;
+          row.className = selected ? 'line-selected' : '';
+          selectors[i].setAttribute('aria-pressed', String(selected));
+        });
+        copy.disabled = false;
+        copy.textContent = start === end ? `Copy line ${start + 1}` : `Copy lines ${start + 1}–${end + 1}`;
+        feedback.textContent = start === end ? `Selected line ${start + 1}` : `Selected lines ${start + 1}–${end + 1}`;
+      }
+      copy.addEventListener('click', () => {
+        if (start === null) return;
+        // Preserve source whitespace and the selected final line's terminator.
+        const text = rawLines.slice(start, end + 1).join('\n') + (end < rawLines.length - 1 ? '\n' : '');
+        copyText(text, feedback, start === end ? 'Copied line' : 'Copied lines');
+      });
       lines.forEach((line, index) => {
         const row = element('tr');
+        const number = element('td', 'number');
+        const selector = element('button', 'line-number', index + 1);
+        selector.type = 'button'; selector.title = `Select line ${index + 1} (Shift-click to select a range)`;
+        selector.setAttribute('aria-label', selector.title); selector.setAttribute('aria-pressed', 'false');
+        selector.addEventListener('click', event => selectLine(index, Boolean(event?.shiftKey)));
+        // Native keyboard activation does not consistently preserve Shift.
+        selector.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectLine(index, event.shiftKey); }
+        });
+        number.append(selector); rows.push(row); selectors.push(selector);
         const code = element('td', 'code');
         if (line.some(token => token.kind)) {
           for (const token of line) code.append(element('span', token.kind ? `syntax-${token.kind}` : '', token.text));
         } else code.textContent = line.map(token => token.text).join('');
-        row.append(element('td', 'number', index + 1), code);
+        row.append(number, code);
         body.append(row);
       });
       table.append(body); scroll.append(table); panel.append(scroll);
     }
+    heading.append(feedback);
     $('diffs').replaceChildren(panel);
   } catch (err) {
     if (request === fileRequest && view === 'files') $('diffs').replaceChildren(element('p', 'notice', `Could not open ${path}: ${err.message}`));
