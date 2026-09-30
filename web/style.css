@@ -26,7 +26,12 @@ h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #
 .file-link { display: flex; align-items: baseline; gap: 6px; width: 100%; padding: 4px 6px; border: 0; border-radius: 4px; background: transparent; text-align: left; white-space: normal; text-decoration: none; color: #dce5ef; font-size: 12px; }
 .file-link:hover { background: #1d2837; }
 .file-link[aria-current="true"] { background: #203b57; color: #e5f2ff; }
-.viewer-heading .badge { margin-right: 8px; }
+.file-link .path, .viewer-heading .path { flex: 1; min-width: 0; }
+.diff-stats { display: inline-flex; gap: 5px; flex-shrink: 0; margin-left: auto; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
+.stat-added { color: #80d5a1; }
+.stat-deleted { color: #f49ca1; }
+.viewer-heading { display: flex; align-items: baseline; gap: 6px; }
+.viewer-heading .badge { margin-right: 2px; }
 .path { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .badge { flex-shrink: 0; font-size: 11px; color: #edc780; font-weight: 600; }
 .status-A, .status-\? { color: #80d5a1; } .status-D { color: #f49ca1; }

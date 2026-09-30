@@ -114,10 +114,15 @@ test('only the selected diff is displayed and highlighted', async () => {
   assert.equal(nodes.get('diffs').querySelectorAll('.file').length, 0);
   assert.match(nodes.get('diffs').children[0].textContent, /Select a changed file/);
   const links = nodes.get('files').querySelectorAll('.file-link');
+  assert.equal(links[0].querySelectorAll('.stat-added')[0].textContent, '+1');
+  assert.equal(links[0].querySelectorAll('.stat-deleted')[0].textContent, '−1');
+  assert.equal(links[1].querySelectorAll('.stat-added')[0].textContent, '+1');
+  assert.equal(links[1].querySelectorAll('.stat-deleted')[0].textContent, '−0');
   links[1].listeners.click();
   let panels = nodes.get('diffs').querySelectorAll('.file');
   assert.equal(panels.length, 1);
   assert.equal(panels[0].children[0].children[1].textContent, 'second.txt');
+  assert.equal(panels[0].children[0].querySelectorAll('.stat-added')[0].textContent, '+1');
   assert.equal(links[1].attributes['aria-current'], 'true');
   assert.equal(links[0].attributes['aria-current'], undefined);
   links[0].listeners.click();
@@ -127,6 +132,24 @@ test('only the selected diff is displayed and highlighted', async () => {
   assert.equal(links[0].attributes['aria-current'], 'true');
   assert.equal(links[1].attributes['aria-current'], undefined);
   assert.equal(nodes.has('collapse-all'), false);
+});
+
+test('line totals count hunk content, not headers or context', async () => {
+  const { context } = setup();
+  await tick();
+  const cases = [
+    ['', 0, 0],
+    ['diff --git a/bin b/bin\nBinary files a/bin and b/bin differ\n', 0, 0],
+    ['diff --git a/old b/new\nsimilarity index 100%\nrename from old\nrename to new\n', 0, 0],
+    ['--- a/file\n+++ b/file\n@@ -1,3 +1,3 @@\n context\n---actual deletion\n+++actual addition\n unchanged\n@@ -10 +10,2 @@\n-old\n+new\n+extra\n\\ No newline at end of file\n', 3, 2],
+    ['--- /dev/null\n+++ b/new\n@@ -0,0 +1,2 @@\n+one\n+two\n', 2, 0],
+  ];
+  for (const [patch, added, deleted] of cases) {
+    context.patch = patch;
+    const result = vm.runInContext('diffStats(patch)', context);
+    assert.equal(result.added, added);
+    assert.equal(result.deleted, deleted);
+  }
 });
 
 test('refresh preserves the selected section and clears vanished changes', async () => {

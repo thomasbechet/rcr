@@ -17,6 +17,26 @@ function element(tag, className, text) {
   return node;
 }
 
+function diffStats(text) {
+  let added = 0, deleted = 0, inHunk = false;
+  for (const line of text.split('\n')) {
+    if (line.startsWith('diff --git ')) inHunk = false;
+    else if (/^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/.test(line)) inHunk = true;
+    else if (inHunk && line.startsWith('+')) added++;
+    else if (inHunk && line.startsWith('-')) deleted++;
+  }
+  return { added, deleted };
+}
+
+function changeStats(change) {
+  const { added, deleted } = diffStats(change.diff);
+  const stats = element('span', 'diff-stats');
+  stats.title = `${added} added lines, ${deleted} deleted lines`;
+  stats.setAttribute('aria-label', stats.title);
+  stats.append(element('span', 'stat-added', `+${added}`), element('span', 'stat-deleted', `−${deleted}`));
+  return stats;
+}
+
 function renderPatch(text) {
   const table = element('table', 'patch');
   const body = document.createElement('tbody');
@@ -63,7 +83,7 @@ function render(data) {
     for (const change of changes) {
       const key = JSON.stringify([change.section, change.path]);
       const link = element('button', 'file-link'); link.type = 'button'; link.dataset.change = key;
-      link.append(element('span', `badge status-${change.status}`, change.status), element('span', 'path', change.path));
+      link.append(element('span', `badge status-${change.status}`, change.status), element('span', 'path', change.path), changeStats(change));
       link.title = change.oldPath ? `${change.oldPath} → ${change.path}` : change.path;
       link.addEventListener('click', () => showChange(change));
       $('files').append(link);
@@ -85,7 +105,7 @@ function showChange(change) {
   }
   const panel = element('article', 'file');
   const heading = element('h2', 'viewer-heading');
-  heading.append(element('span', `badge status-${change.status}`, `${labels[change.section]} · ${statuses[change.status] || change.status}`), element('span', 'path', change.oldPath ? `${change.oldPath} → ${change.path}` : change.path));
+  heading.append(element('span', `badge status-${change.status}`, `${labels[change.section]} · ${statuses[change.status] || change.status}`), element('span', 'path', change.oldPath ? `${change.oldPath} → ${change.path}` : change.path), changeStats(change));
   panel.append(heading);
   if (change.notice) panel.append(element('p', 'notice', change.notice));
   if (change.diff) {
