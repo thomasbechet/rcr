@@ -16,6 +16,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .tree-children { padding-left: 8px; }
 .tree-file { display: block; width: 100%; min-height: 18px; padding: 1px 4px; border: 0; background: transparent; color: #dce5ef; text-align: left; font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-file:hover, .tree-folder summary:hover { background: #1d2837; }
+.tree-file, .tree-folder summary, .file-link, .view-switch button, #refresh { touch-action: manipulation; }
+.tree-file:active, .tree-folder summary:active, .file-link:active { background: #2b5075; }
 .tree-file[aria-current="true"] { background: #203b57; color: #e5f2ff; }
 .tree-file.tree-added, .tree-folder summary.tree-added { color: #80d5a1; }
 .tree-file.tree-modified, .tree-folder summary.tree-modified { color: #edc780; }
@@ -78,8 +80,26 @@ summary .badge { margin-right: 8px; }
   #summary { grid-column: 3; grid-row: 2; text-align: right; }
   #updated { display: none; }
   main { display: flex; flex-direction: column; }
-  nav { flex-shrink: 0; max-height: min(160px, 25vh); border-right: 0; border-bottom: 1px solid #2a3545; }
+  nav { flex-shrink: 0; max-height: min(360px, 40vh); max-height: min(360px, 40dvh); border-right: 0; border-bottom: 1px solid #2a3545; }
   #diffs { flex: 1; padding: 4px 8px; }
   #error { margin: 8px; }
   .view-switch button { min-height: 32px; }
+}
+/* Also cover touch-enabled tablets/laptops, not just narrow phone screens. */
+@media (max-width: 760px), (any-pointer: coarse) {
+  nav { padding: 4px; overscroll-behavior: contain; scroll-padding-block: 4px; }
+  nav h2 { padding: 6px 10px; font-size: 12px; line-height: 18px; }
+  .tree-file, .tree-folder summary, .file-link { min-height: 44px; padding: 12px 10px; font-size: 14px; line-height: 20px; border-radius: 5px; }
+  .tree-folder summary { user-select: none; }
+  .tree-children { margin-left: 10px; padding-left: 12px; border-left: 1px solid #2a3545; }
+  .file-link { gap: 8px; }
+  nav .badge, nav .diff-stats { font-size: 12px; }
+  .view-switch { gap: 8px; }
+  .view-switch button, #refresh { min-width: 44px; min-height: 44px; padding: 8px 12px; font-size: 14px; }
+  .source { line-height: 22px; }
+  .line-number { min-width: 44px; min-height: 22px; touch-action: manipulation; -webkit-touch-callout: none; }
+  .viewer-heading .copy-lines { min-height: 44px; padding: 8px 12px; font-size: 14px; touch-action: manipulation; }
+}
+@media (min-width: 761px) and (any-pointer: coarse) {
+  main { grid-template-columns: 280px minmax(0, 1fr); }
 }

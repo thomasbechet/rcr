@@ -35,6 +35,7 @@ function setup(changes = []) {
   const calls = [];
   const copied = [];
   const context = vm.createContext({
+    setTimeout, clearTimeout,
     navigator: { clipboard: { writeText: async text => { copied.push(text); } } },
     document: {
       getElementById(id) { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); },
@@ -514,6 +515,108 @@ test('keyboard line selection extends ranges and preserves trailing newlines', a
   await tick();
   assert.equal(copied.at(-1), '<script>safe text</script>\nsecond line\n');
   assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, 'Copied lines');
+});
+
+test('mobile range selection uses long-press without an extra range button', async () => {
+  const { nodes, context, copied } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  context.fetch = async () => ({ ok: true, json: async () => ({ path: 'main.go', content: 'first\n\tsecond\n\nlast' }) });
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const selectors = nodes.get('diffs').querySelectorAll('.line-number');
+  const timers = pressTimers(context);
+  assert.equal(nodes.get('diffs').querySelectorAll('.select-range').length, 0);
+  const copy = nodes.get('diffs').querySelectorAll('.copy-lines')[0];
+  selectors[0].listeners.click();
+  selectors[2].listeners.pointerdown(touchDown);
+  timers.fire();
+  selectors[2].listeners.pointerup();
+  assert.equal(copy.textContent, 'Copy lines 1–3');
+  copy.listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), 'first\n\tsecond\n\n');
+  selectors[3].listeners.click();
+  assert.equal(copy.textContent, 'Copy line 4');
+  selectors[1].listeners.pointerdown(touchDown);
+  timers.fire();
+  selectors[1].listeners.pointerup();
+  assert.equal(copy.textContent, 'Copy lines 2–4');
+  copy.listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), '\tsecond\n\nlast');
+});
+
+function pressTimers(context) {
+  const pending = new Map();
+  let id = 0;
+  context.setTimeout = (callback, delay) => { assert.equal(delay, 500); pending.set(++id, callback); return id; };
+  context.clearTimeout = timer => pending.delete(timer);
+  return { pending, fire() { const callbacks = [...pending.values()]; pending.clear(); for (const callback of callbacks) callback(); } };
+}
+const touchDown = { pointerType: 'touch', pointerId: 1, isPrimary: true, button: 0, clientX: 20, clientY: 20 };
+
+test('long-press selects a range without the release click collapsing it', async () => {
+  const { nodes, context, copied } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const timers = pressTimers(context);
+  const selectors = nodes.get('diffs').querySelectorAll('.line-number');
+  selectors[0].listeners.click();
+  selectors[1].listeners.pointerdown(touchDown);
+  timers.fire();
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-lines')[0].textContent, 'Copy lines 1–2');
+  let prevented = 0;
+  selectors[1].listeners.contextmenu({ preventDefault() { prevented++; } });
+  selectors[1].listeners.pointerup();
+  selectors[1].listeners.click({ preventDefault() { prevented++; } });
+  assert.equal(prevented, 2);
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-lines')[0].textContent, 'Copy lines 1–2');
+  nodes.get('diffs').querySelectorAll('.copy-lines')[0].listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), '<script>safe text</script>\nsecond line\n');
+  // A subsequent ordinary tap selects just one line again.
+  selectors[1].listeners.pointerdown(touchDown);
+  selectors[1].listeners.pointerup();
+  selectors[1].listeners.click();
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-lines')[0].textContent, 'Copy line 2');
+  // Reverse ranges also work with pen input.
+  selectors[0].listeners.pointerdown({ ...touchDown, pointerType: 'pen' });
+  timers.fire();
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-lines')[0].textContent, 'Copy lines 1–2');
+  selectors[0].listeners.pointerup();
+});
+
+test('long-press cancels on scrolling, early release, pointer cancellation, and navigation', async () => {
+  const { nodes, context } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const timers = pressTimers(context);
+  const selectors = nodes.get('diffs').querySelectorAll('.line-number');
+  selectors[0].listeners.click();
+  for (const name of ['pointermove', 'pointerup', 'pointercancel', 'pointerleave']) {
+    selectors[1].listeners.pointerdown(touchDown);
+    selectors[1].listeners[name]({ ...touchDown, clientY: 40 });
+    assert.equal(timers.pending.size, 0, name);
+    timers.fire();
+    assert.equal(nodes.get('diffs').querySelectorAll('.copy-lines')[0].textContent, 'Copy line 1');
+  }
+  for (const event of [{ ...touchDown, pointerType: 'mouse' }, { ...touchDown, isPrimary: false }]) {
+    selectors[1].listeners.pointerdown(event);
+    assert.equal(timers.pending.size, 0);
+  }
+  selectors[1].listeners.pointerdown(touchDown);
+  nodes.get('changes-view').listeners.click();
+  timers.fire();
+  assert.match(nodes.get('diffs').children[0].textContent, /clean/);
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-lines').length, 0);
 });
 
 test('clipboard fallback cleans up and reports success or failure without changing the path', async () => {

@@ -251,7 +251,7 @@ async function showFile(path) {
       const rawLines = file.content.split('\n');
       const copy = element('button', 'copy-lines', 'Copy lines');
       copy.type = 'button'; copy.disabled = true;
-      copy.title = 'Click a line number; Shift-click another to select a range';
+      copy.title = 'Select line numbers, then copy their source text';
       heading.append(copy);
       let anchor = null, start = null, end = null;
       const rows = [], selectors = [];
@@ -277,9 +277,37 @@ async function showFile(path) {
         const row = element('tr');
         const number = element('td', 'number');
         const selector = element('button', 'line-number', index + 1);
-        selector.type = 'button'; selector.title = `Select line ${index + 1} (Shift-click to select a range)`;
+        selector.type = 'button'; selector.title = `Select line ${index + 1} (long-press or Shift-click to extend)`;
         selector.setAttribute('aria-label', selector.title); selector.setAttribute('aria-pressed', 'false');
-        selector.addEventListener('click', event => selectLine(index, Boolean(event?.shiftKey)));
+        let press = null, timer = null, suppressClick = false;
+        function cancelPress() {
+          if (timer !== null) clearTimeout(timer);
+          timer = null; press = null;
+        }
+        selector.addEventListener('pointerdown', event => {
+          cancelPress(); suppressClick = false;
+          if (!['touch', 'pen'].includes(event.pointerType) || event.isPrimary === false || event.button > 0) return;
+          press = { id: event.pointerId, x: event.clientX, y: event.clientY };
+          timer = setTimeout(() => {
+            timer = null;
+            if (request !== fileRequest || view !== 'files') { cancelPress(); return; }
+            suppressClick = true;
+            selectLine(index, true);
+          }, 500);
+        });
+        selector.addEventListener('pointermove', event => {
+          if (press && event.pointerId === press.id && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 10) cancelPress();
+        });
+        for (const name of ['pointerup', 'pointercancel', 'pointerleave']) selector.addEventListener(name, cancelPress);
+        // Suppress the native touch menu only in the gutter; source text still
+        // supports ordinary browser text selection and scrolling.
+        selector.addEventListener('contextmenu', event => {
+          if (press || suppressClick) event.preventDefault();
+        });
+        selector.addEventListener('click', event => {
+          if (suppressClick) { suppressClick = false; event?.preventDefault(); return; }
+          selectLine(index, Boolean(event?.shiftKey));
+        });
         // Native keyboard activation does not consistently preserve Shift.
         selector.addEventListener('keydown', event => {
           if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectLine(index, event.shiftKey); }

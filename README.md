@@ -16,11 +16,13 @@ Click a file in the changed-file list to view its diff. Only the selected diff i
 
 Click **Open in Files** in a diff heading to view the file's current contents in the Files tab. Its parent folders expand and its tree entry is selected and brought into view. Returning to Changes keeps your diff selection. Files no longer on disk show an unavailable notice instead; their diffs remain in Changes.
 
-Click a file path in a diff or file-preview heading to copy its repository-relative path. In a file preview, click a line number to select that line, or Shift-click another line number to select a range, then click **Copy lines**. Line-number buttons also work with Enter/Space (hold Shift to extend). Copying preserves source indentation and line endings, without line numbers or highlighting markup.
+Click a file path in a diff or file-preview heading to copy its repository-relative path. In a file preview, tap the first line number, then long-press the last line number for half a second to select the range and tap **Copy lines**. Moving your finger cancels the long-press so scrolling still works. On desktop, Shift-click another line number also selects a range. Line-number buttons work with Enter/Space (hold Shift to extend). Copying preserves source indentation and line endings, without line numbers or highlighting markup. Touch code rows stay compact with 22-pixel line spacing and a wider line-number gutter.
 
 Each changed file shows green **+added** and red **−deleted** line totals in the sidebar and diff heading. Counts exclude diff metadata and context lines; binary and metadata-only changes show zero textual changes.
 
 The compact header stays visible while the file list and content pane scroll independently. Long repository paths are shortened visually; hover to see the full path. On narrow screens the header uses two rows.
+
+On narrow screens and touch-enabled devices, folder rows, file rows, and navigation controls use at least 44-pixel tap targets. Tap anywhere on a folder row to expand or collapse it. Indentation guides clarify nested folders, and the phone layout gives the independently scrollable tree up to 40% of the screen height. Mouse-only desktop layouts remain compact.
 
 Switch to **Files** to browse expandable folders and view current file contents with line numbers, including unchanged tracked files and non-ignored untracked files. Click **Changes** to return to diffs. File contents are read on selection; **Refresh** also reloads the file tree and selected preview. Paths removed from disk are excluded from Files; their deletion diffs remain available in Changes. Ignored untracked files and Git metadata are not exposed.
 
