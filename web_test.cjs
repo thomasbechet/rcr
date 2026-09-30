@@ -8,6 +8,7 @@ class Node {
   constructor(tag = 'div') {
     this.tag = tag; this.children = []; this.attributes = {}; this.dataset = {};
     this.listeners = {}; this.textContent = ''; this.className = '';
+    this.style = {};
   }
   append(...nodes) { this.children.push(...nodes); }
   replaceChildren(...nodes) { this.children = nodes; }
@@ -764,4 +765,138 @@ test('deletions at EOF get a gutter marker and empty files get a deletion notice
   file.listeners.click();
   await tick();
   assert.ok(nodes.get('diffs').querySelectorAll('.notice').some(node => /2 lines deleted/.test(node.textContent)));
+});
+
+test('code zoom resizes text without rerendering or clearing line selection', async () => {
+  const { nodes, copied } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const table = nodes.get('diffs').querySelectorAll('.patch')[0];
+  const line = nodes.get('diffs').querySelectorAll('.line-number')[0];
+  line.listeners.click();
+  assert.equal(table.style.fontSize, '12px');
+  nodes.get('diffs').querySelectorAll('.patch-scroll')[0].listeners.wheel({ ctrlKey: true, deltaY: 40, preventDefault() {} });
+  assert.equal(table.style.fontSize, '11px');
+  assert.equal(nodes.get('diffs').querySelectorAll('.zoom-reset')[0].textContent, '92%');
+  assert.equal(nodes.get('diffs').querySelectorAll('.line-number')[0], line);
+  assert.equal(line.attributes['aria-pressed'], 'true');
+  nodes.get('diffs').querySelectorAll('.copy-lines')[0].listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), '<script>safe text</script>\n');
+});
+
+test('code zoom enforces size limits and can reset to the default', async () => {
+  const { nodes } = setup([
+    { path: 'unchanged.txt', section: 'unstaged', status: 'M', diff: '@@ -1 +1 @@\n-old\n+new\n' },
+  ]);
+  await tick();
+  nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+  const table = nodes.get('diffs').querySelectorAll('.patch')[0];
+  const scroll = nodes.get('diffs').querySelectorAll('.patch-scroll')[0];
+  assert.equal(nodes.get('diffs').querySelectorAll('.zoom-out').length, 0);
+  assert.equal(nodes.get('diffs').querySelectorAll('.zoom-in').length, 0);
+  const reset = nodes.get('diffs').querySelectorAll('.zoom-reset')[0];
+  scroll.listeners.wheel({ ctrlKey: true, deltaY: 10000, preventDefault() {} });
+  assert.equal(table.style.fontSize, '3px');
+  assert.equal(reset.textContent, '25%');
+  scroll.listeners.wheel({ ctrlKey: true, deltaY: -10000, preventDefault() {} });
+  assert.equal(table.style.fontSize, '24px');
+  assert.equal(reset.textContent, '200%');
+  reset.listeners.click();
+  assert.equal(table.style.fontSize, '12px');
+  assert.equal(reset.textContent, '100%');
+  assert.equal(reset.attributes['aria-label'], 'Code zoom 100%; reset to 100%');
+});
+
+test('zoom survives file navigation, switching views, and refresh', async () => {
+  const { nodes } = setup([
+    { path: 'unchanged.txt', section: 'unstaged', status: 'M', diff: '@@ -1 +1 @@\n-old\n+new\n' },
+  ]);
+  await tick();
+  nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+  nodes.get('diffs').querySelectorAll('.patch-scroll')[0].listeners.wheel({ ctrlKey: true, deltaY: 80, preventDefault() {} });
+  nodes.get('diffs').querySelectorAll('.open-in-files')[0].listeners.click();
+  await tick();
+  assert.equal(nodes.get('diffs').querySelectorAll('.patch')[0].style.fontSize, '10px');
+  const folder = nodes.get('files').querySelectorAll('.tree-folder')[0];
+  folder.open = true; folder.listeners.toggle();
+  nodes.get('files').querySelectorAll('.tree-file').find(button => button.dataset.path === 'src/new + #.js').listeners.click();
+  await tick();
+  assert.equal(nodes.get('diffs').querySelectorAll('.patch')[0].style.fontSize, '10px');
+  assert.equal(nodes.get('diffs').querySelectorAll('.zoom-reset')[0].textContent, '83%');
+  nodes.get('refresh').listeners.click();
+  await tick();
+  assert.equal(nodes.get('diffs').querySelectorAll('.patch')[0].style.fontSize, '10px');
+  nodes.get('changes-view').listeners.click();
+  assert.equal(nodes.get('diffs').querySelectorAll('.patch')[0].style.fontSize, '10px');
+});
+
+test('Ctrl-wheel zooms code while ordinary wheel keeps browser scrolling', async () => {
+  const { nodes } = setup([{ path: 'unchanged.txt', section: 'unstaged', status: 'M', diff: '@@ -1 +1 @@\n-old\n+new\n' }]);
+  await tick();
+  nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+  const scroll = nodes.get('diffs').querySelectorAll('.patch-scroll')[0];
+  const table = nodes.get('diffs').querySelectorAll('.patch')[0];
+  let prevented = 0;
+  const wheel = { ctrlKey: false, deltaY: 80, deltaMode: 0, preventDefault() { prevented++; } };
+  scroll.listeners.wheel(wheel);
+  assert.equal(prevented, 0);
+  assert.equal(table.style.fontSize, '12px');
+  scroll.listeners.wheel({ ...wheel, ctrlKey: true });
+  assert.equal(prevented, 1);
+  assert.equal(table.style.fontSize, '10px');
+  scroll.listeners.wheel({ ...wheel, ctrlKey: true, deltaY: -40 });
+  assert.equal(table.style.fontSize, '11px');
+  scroll.listeners.wheel({ ...wheel, ctrlKey: true, deltaY: 20 });
+  assert.equal(table.style.fontSize, '11px');
+  scroll.listeners.wheel({ ...wheel, ctrlKey: true, deltaY: 20 });
+  assert.equal(table.style.fontSize, '10px');
+  scroll.listeners.wheel({ ...wheel, ctrlKey: true, deltaY: 1000 });
+  assert.equal(table.style.fontSize, '3px');
+  scroll.listeners.wheel({ ...wheel, ctrlKey: true, deltaY: -1000 });
+  assert.equal(table.style.fontSize, '24px');
+});
+
+test('two-finger pinch zooms code, cancels line presses, and leaves one-finger scrolling alone', async () => {
+  const { nodes, context } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const timers = pressTimers(context);
+  const line = nodes.get('diffs').querySelectorAll('.line-number')[0];
+  const scroll = nodes.get('diffs').querySelectorAll('.patch-scroll')[0];
+  const table = nodes.get('diffs').querySelectorAll('.patch')[0];
+  let prevented = 0;
+  const gesture = gap => ({ touches: [{ clientX: 0, clientY: 0 }, { clientX: gap, clientY: 0 }], preventDefault() { prevented++; } });
+  const single = { touches: [{ clientX: 0, clientY: 0 }], preventDefault() { prevented++; } };
+  scroll.listeners.touchstart(single);
+  scroll.listeners.touchmove(single);
+  assert.equal(prevented, 0);
+  line.listeners.pointerdown(touchDown);
+  assert.equal(timers.pending.size, 1);
+  scroll.listeners.touchstart(gesture(100));
+  assert.equal(timers.pending.size, 0);
+  scroll.listeners.touchmove(gesture(75));
+  assert.equal(table.style.fontSize, '9px');
+  assert.equal(nodes.get('diffs').querySelectorAll('.zoom-reset')[0].textContent, '75%');
+  assert.equal(line.attributes['aria-pressed'], 'false');
+  scroll.listeners.touchmove(gesture(200));
+  assert.equal(table.style.fontSize, '24px');
+  scroll.listeners.touchend();
+  scroll.listeners.touchmove(gesture(100));
+  assert.equal(table.style.fontSize, '24px');
+  scroll.listeners.touchstart(gesture(100));
+  scroll.listeners.touchmove(gesture(5));
+  assert.equal(table.style.fontSize, '3px');
+  scroll.listeners.touchcancel();
+  scroll.listeners.touchmove(gesture(200));
+  assert.equal(table.style.fontSize, '3px');
+  scroll.listeners.touchstart(gesture(0));
+  scroll.listeners.touchmove(gesture(100));
+  assert.equal(table.style.fontSize, '3px');
 });

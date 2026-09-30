@@ -9,6 +9,8 @@ let selectedPath = null;
 let selectedChange = null;
 let fileRequest = 0;
 let treeRequest = 0;
+let codeFontSize = 12;
+const minCodeFontSize = 3, maxCodeFontSize = 24;
 const openFolders = new Set();
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -79,6 +81,61 @@ function copyPathButton(path, feedback, label = path) {
   button.setAttribute('aria-label', button.title);
   button.addEventListener('click', () => copyText(path, feedback, 'Copied path'));
   return button;
+}
+
+function updateCodeZoom() {
+  for (const table of $('diffs').querySelectorAll('.patch')) table.style.fontSize = `${codeFontSize}px`;
+  for (const button of $('diffs').querySelectorAll('.zoom-reset')) {
+    const percent = Math.round(codeFontSize / 12 * 100);
+    button.textContent = `${percent}%`;
+    button.setAttribute('aria-label', `Code zoom ${percent}%; reset to 100%`);
+  }
+}
+
+function setCodeZoom(size) {
+  codeFontSize = Math.max(minCodeFontSize, Math.min(maxCodeFontSize, Math.round(size)));
+  updateCodeZoom();
+}
+
+function codeScroll() {
+  const scroll = element('div', 'patch-scroll');
+  let wheelDelta = 0, pinch = null;
+  scroll.addEventListener('wheel', event => {
+    if (!event.ctrlKey || !event.deltaY) return;
+    event.preventDefault();
+    wheelDelta += event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
+    const steps = Math.trunc(wheelDelta / 40);
+    if (steps) { wheelDelta -= steps * 40; setCodeZoom(codeFontSize - steps); }
+  }, { passive: false });
+  function distance(touches) {
+    return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+  }
+  scroll.addEventListener('touchstart', event => {
+    wheelDelta = 0;
+    if (event.touches.length > 1) scroll.cancelLinePress?.();
+    if (event.touches.length !== 2) { pinch = null; return; }
+    event.preventDefault();
+    const gap = distance(event.touches);
+    pinch = gap > 0 ? { gap, size: codeFontSize } : null;
+  }, { passive: false });
+  scroll.addEventListener('touchmove', event => {
+    if (event.touches.length !== 2) { pinch = null; return; }
+    event.preventDefault();
+    if (pinch) setCodeZoom(pinch.size * distance(event.touches) / pinch.gap);
+  }, { passive: false });
+  for (const name of ['touchend', 'touchcancel']) scroll.addEventListener(name, () => { pinch = null; });
+  return scroll;
+}
+
+function codeZoomControls() {
+  const controls = element('span', 'code-zoom');
+  controls.setAttribute('role', 'group'); controls.setAttribute('aria-label', 'Code zoom');
+  const reset = element('button', 'zoom-reset', '100%');
+  reset.type = 'button'; reset.title = 'Reset code zoom to 100%';
+  reset.setAttribute('aria-label', reset.title);
+  reset.addEventListener('click', () => setCodeZoom(12));
+  controls.append(reset);
+  return controls;
 }
 
 function renderPatch(text) {
@@ -159,9 +216,11 @@ function showChange(change) {
   panel.append(heading);
   if (change.notice) panel.append(element('p', 'notice', change.notice));
   if (change.diff) {
-    const scroll = element('div', 'patch-scroll'); scroll.append(renderPatch(change.diff)); panel.append(scroll);
+    heading.append(codeZoomControls());
+    const scroll = codeScroll(); scroll.append(renderPatch(change.diff)); panel.append(scroll);
   } else if (!change.notice) panel.append(element('p', 'notice', 'No textual changes (file mode or metadata changed).'));
   $('diffs').replaceChildren(panel);
+  updateCodeZoom();
 }
 
 async function requestJSON(url) {
@@ -249,7 +308,8 @@ async function showFile(path) {
       if (removed) panel.append(element('p', 'notice', `${removed} line${removed === 1 ? '' : 's'} deleted; no remaining lines to mark.`));
     }
     if (file.content) {
-      const scroll = element('div', 'patch-scroll');
+      heading.append(codeZoomControls());
+      const scroll = codeScroll();
       const table = element('table', 'patch source');
       const body = element('tbody');
       const lines = sourceTokenLines(file.content, file.path);
@@ -303,11 +363,13 @@ async function showFile(path) {
         function cancelPress() {
           if (timer !== null) clearTimeout(timer);
           timer = null; press = null;
+          if (scroll.cancelLinePress === cancelPress) scroll.cancelLinePress = null;
         }
         selector.addEventListener('pointerdown', event => {
           cancelPress(); suppressClick = false;
           if (!['touch', 'pen'].includes(event.pointerType) || event.isPrimary === false || event.button > 0) return;
           press = { id: event.pointerId, x: event.clientX, y: event.clientY };
+          scroll.cancelLinePress = cancelPress;
           timer = setTimeout(() => {
             timer = null;
             if (request !== fileRequest || view !== 'files') { cancelPress(); return; }
@@ -344,6 +406,7 @@ async function showFile(path) {
     }
     heading.append(feedback);
     $('diffs').replaceChildren(panel);
+    updateCodeZoom();
   } catch (err) {
     if (request === fileRequest && view === 'files') $('diffs').replaceChildren(element('p', 'notice', `Could not open ${path}: ${err.message}`));
   } finally {

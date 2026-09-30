@@ -42,6 +42,9 @@ nav .badge, nav .diff-stats { font-size: 10px; }
 .viewer-heading .copy-path:hover { color: #8bc5ff; text-decoration: underline; }
 .copy-feedback { color: #9aaabd; font-size: 11px; font-weight: normal; }
 .copy-feedback:empty { display: none; }
+.code-zoom { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.code-zoom button { min-width: 24px; padding: 2px 5px; font-size: 11px; }
+.code-zoom .zoom-reset { min-width: 48px; font-variant-numeric: tabular-nums; }
 .clipboard-buffer { position: fixed; left: -9999px; top: 0; opacity: 0; }
 .viewer-heading .badge { margin-right: 2px; }
 .path { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
@@ -51,7 +54,7 @@ nav .badge, nav .diff-stats { font-size: 10px; }
 .file { flex: 1 0 auto; border: 1px solid #2a3545; border-radius: 5px; overflow: hidden; scroll-margin-top: 4px; }
 summary { cursor: pointer; background: #192332; padding: 6px 10px; font-size: 12px; }
 summary .badge { margin-right: 8px; }
-.patch-scroll { overflow: auto; }
+.patch-scroll { overflow: auto; touch-action: pan-x pan-y; }
 .patch { border-collapse: collapse; font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; width: 100%; }
 .patch td { padding: 0 6px; vertical-align: top; }
 .number { text-align: right; color: #8c9eb1; width: 36px; min-width: 36px; user-select: none; border-right: 1px solid #ffffff0b; }
@@ -102,10 +105,11 @@ summary .badge { margin-right: 8px; }
   nav .badge, nav .diff-stats { font-size: 11px; }
   .view-switch { gap: 4px; }
   .view-switch button, #refresh { min-width: 36px; min-height: 32px; padding: 6px 10px; font-size: 13px; }
-  .source { line-height: 22px; }
-  .line-number { min-width: 44px; min-height: 22px; touch-action: manipulation; -webkit-touch-callout: none; }
+  .source { line-height: 1.8; }
+  .line-number { min-width: 44px; min-height: 1.8em; touch-action: manipulation; -webkit-touch-callout: none; }
   .viewer-heading { padding: 6px 8px; gap: 4px; }
   .viewer-heading .open-in-files, .viewer-heading .copy-lines { min-height: 32px; padding: 6px 8px; font-size: 12px; touch-action: manipulation; }
+  .code-zoom button { min-width: 32px; min-height: 32px; padding: 6px; font-size: 12px; touch-action: manipulation; }
 }
 @media (min-width: 761px) and (any-pointer: coarse) {
   main { grid-template-columns: 280px minmax(0, 1fr); }

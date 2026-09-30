@@ -30,6 +30,8 @@ File previews include lightweight syntax highlighting for Go, Zig, JavaScript/Ty
 
 Files previews also mark added lines in green and modified lines in amber, using the latest change snapshot. A red line-number gutter marker shows where lines were deleted; hover or focus a line-number button for change details. Staged changes are translated through unstaged edits to align with current file contents. Use **Refresh** after editing to update these markers. Selecting lines temporarily replaces the row background but retains gutter change markers.
 
+Use **Ctrl + mouse wheel** over the code pane or a **two-finger pinch** on a phone to zoom the code text out or in (25%–200%). Click the percentage in the file or diff heading to reset to 100%. Ordinary wheel and one-finger gestures still scroll; zoom gestures inside the code pane scale only the code, including its line spacing, rather than the whole page. Navigation and toolbar sizes stay unchanged. Zoom is shared between Files and Changes and retained when selecting another file or refreshing, until the page is reloaded.
+
 ## Remote access
 
 Run `rcr 127.0.0.1:8080` on the remote machine, then forward its port from your local machine:
