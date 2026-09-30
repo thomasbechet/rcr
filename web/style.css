@@ -17,6 +17,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .tree-file { display: block; width: 100%; min-height: 18px; padding: 1px 4px; border: 0; background: transparent; color: #dce5ef; text-align: left; font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-file:hover, .tree-folder summary:hover { background: #1d2837; }
 .tree-file[aria-current="true"] { background: #203b57; color: #e5f2ff; }
+.tree-file.tree-added, .tree-folder summary.tree-added { color: #80d5a1; }
+.tree-file.tree-modified, .tree-folder summary.tree-modified { color: #edc780; }
 .viewer-heading { background: #192332; margin: 0; padding: 8px 10px; font-size: 12px; text-transform: none; letter-spacing: normal; color: #dce5ef; }
 main { display: grid; grid-template-columns: 208px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
 nav { min-width: 0; min-height: 0; padding: 2px; border-right: 1px solid #2a3545; overflow: auto; }

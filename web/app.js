@@ -129,22 +129,30 @@ function markSelectedFile() {
 }
 
 function renderTree(paths) {
+  const changes = new Map();
+  for (const change of currentSnapshot?.changes || []) {
+    const kind = change.status === 'A' || change.status === '?' ? 'added' : 'modified';
+    // A newly staged file remains added even if it also has unstaged edits.
+    if (changes.get(change.path) !== 'added') changes.set(change.path, kind);
+  }
   const root = { folders: new Map(), files: [] };
   for (const path of paths) {
     const parts = path.split('/');
+    const kind = changes.get(path);
     let node = root;
     for (const part of parts.slice(0, -1)) {
       if (!node.folders.has(part)) node.folders.set(part, { folders: new Map(), files: [] });
       node = node.folders.get(part);
+      if (kind && node.kind !== 'modified') node.kind = kind;
     }
-    node.files.push({ name: parts.at(-1), path });
+    node.files.push({ name: parts.at(-1), path, kind });
   }
   function children(node, container, prefix) {
     for (const [name, folder] of [...node.folders].sort(([a], [b]) => a.localeCompare(b))) {
       const path = prefix + name + '/';
       const details = element('details', 'tree-folder');
-      const summary = element('summary', 'path', name + '/');
-      summary.title = path;
+      const summary = element('summary', 'path' + (folder.kind ? ` tree-${folder.kind}` : ''), name + '/');
+      summary.title = path + (folder.kind ? ` — Contains ${folder.kind} files` : '');
       const contents = element('div', 'tree-children');
       details.append(summary, contents);
       let populated = false;
@@ -159,8 +167,9 @@ function renderTree(paths) {
       container.append(details);
     }
     for (const file of node.files) {
-      const button = element('button', 'tree-file path', file.name);
-      button.type = 'button'; button.dataset.path = file.path; button.title = file.path;
+      const button = element('button', 'tree-file path' + (file.kind ? ` tree-${file.kind}` : ''), file.name);
+      button.type = 'button'; button.dataset.path = file.path;
+      button.title = file.path + (file.kind ? ` — ${file.kind === 'added' ? 'Added' : 'Modified'}` : '');
       button.addEventListener('click', () => showFile(file.path));
       container.append(button);
     }

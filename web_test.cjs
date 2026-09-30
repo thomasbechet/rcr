@@ -90,6 +90,69 @@ test('late file responses cannot overwrite the diff view', async () => {
   assert.equal(nodes.get('diffs').attributes['aria-busy'], 'false');
 });
 
+test('file tree colors added and modified files and collapsed parent folders', async () => {
+  const { nodes, paths } = setup([
+    { path: 'src/new + #.js', section: 'unstaged', status: 'M', diff: '' },
+    { path: 'src/new + #.js', section: 'staged', status: 'A', diff: '' },
+    { path: 'src/nested/edited.js', section: 'staged', status: 'M', diff: '' },
+    { path: 'new/file.txt', section: 'untracked', status: '?', diff: '' },
+  ]);
+  paths.push('src/nested/edited.js', 'new/file.txt');
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  const folders = nodes.get('files').querySelectorAll('.tree-folder');
+  const addedFolder = folders.find(folder => folder.children[0].textContent === 'new/');
+  const mixedFolder = folders.find(folder => folder.children[0].textContent === 'src/');
+  assert.match(addedFolder.children[0].className, /tree-added/);
+  assert.match(mixedFolder.children[0].className, /tree-modified/);
+  for (const folder of folders) { folder.open = true; folder.listeners.toggle(); }
+  const nested = nodes.get('files').querySelectorAll('.tree-folder').find(folder => folder.children[0].textContent === 'nested/');
+  assert.match(nested.children[0].className, /tree-modified/);
+  nested.open = true; nested.listeners.toggle();
+  const buttons = nodes.get('files').querySelectorAll('.tree-file');
+  assert.equal(buttons.find(button => button.dataset.path === 'unchanged.txt').className, 'tree-file path');
+  for (const path of ['src/new + #.js', 'new/file.txt']) {
+    const button = buttons.find(button => button.dataset.path === path);
+    assert.match(button.className, /tree-added/);
+    assert.match(button.title, /Added/);
+  }
+  const modified = buttons.find(button => button.dataset.path === 'src/nested/edited.js');
+  assert.match(modified.className, /tree-modified/);
+  assert.match(modified.title, /Modified/);
+  modified.listeners.click();
+  await tick();
+  assert.equal(modified.attributes['aria-current'], 'true');
+  assert.match(modified.className, /tree-modified/);
+});
+
+test('refresh updates tree colors without losing expanded folders or selection', async () => {
+  const { nodes, snapshot } = setup([
+    { path: 'src/new + #.js', section: 'untracked', status: '?', diff: '' },
+  ]);
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  const folder = nodes.get('files').querySelectorAll('.tree-folder')[0];
+  folder.open = true; folder.listeners.toggle();
+  nodes.get('files').querySelectorAll('.tree-added').find(node => node.tag === 'button').listeners.click();
+  await tick();
+  snapshot.changes[0].status = 'M';
+  snapshot.changes[0].section = 'unstaged';
+  nodes.get('refresh').listeners.click();
+  await tick();
+  let button = nodes.get('files').querySelectorAll('.tree-file').find(node => node.dataset.path === 'src/new + #.js');
+  assert.match(button.className, /tree-modified/);
+  assert.equal(button.attributes['aria-current'], 'true');
+  assert.equal(nodes.get('files').querySelectorAll('.tree-folder')[0].open, true);
+  snapshot.changes.length = 0;
+  nodes.get('refresh').listeners.click();
+  await tick();
+  button = nodes.get('files').querySelectorAll('.tree-file').find(node => node.dataset.path === 'src/new + #.js');
+  assert.equal(button.className, 'tree-file path');
+  assert.equal(nodes.get('files').querySelectorAll('.tree-folder')[0].children[0].className, 'path');
+});
+
 test('refresh reloads the file tree and selected preview', async () => {
   const { nodes, calls } = setup();
   await tick();
