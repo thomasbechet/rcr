@@ -1,14 +1,53 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestRepositoryFilesExcludesMissingPaths(t *testing.T) {
+	root := fixture(t)
+	if err := os.Mkdir(filepath.Join(root, "folder"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	write(t, root, "folder/deleted.txt", "deleted\n")
+	write(t, root, "staged.txt", "staged\n")
+	write(t, root, "kept.txt", "kept\n")
+	if err := os.Symlink("missing-target", filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "add", ".")
+	runGit(t, root, "commit", "-qm", "initial")
+	if err := os.Remove(filepath.Join(root, "folder/deleted.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, "folder")); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "rm", "staged.txt")
+	write(t, root, "new.txt", "new\n")
+	check := func(want []string) {
+		t.Helper()
+		files, err := repositoryFiles(context.Background(), root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(files, want) {
+			t.Fatalf("inventory: %v, want %v", files, want)
+		}
+	}
+	check([]string{"kept.txt", "link", "new.txt"})
+	// A staged deletion recreated on disk is an untracked file and belongs in Files.
+	write(t, root, "staged.txt", "recreated\n")
+	check([]string{"kept.txt", "link", "new.txt", "staged.txt"})
+}
 
 func TestFileBrowser(t *testing.T) {
 	root := fixture(t)
@@ -41,11 +80,11 @@ func TestFileBrowser(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &names); err != nil {
 		t.Fatal(err)
 	}
-	if len(names) != 5 {
+	if len(names) != 4 {
 		t.Fatalf("inventory: %v", names)
 	}
 	for _, name := range names {
-		if strings.HasPrefix(name, ".git/") || name == "ignored" {
+		if strings.HasPrefix(name, ".git/") || name == "ignored" || name == "deleted.txt" {
 			t.Fatalf("exposed %q", name)
 		}
 	}

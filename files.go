@@ -27,11 +27,24 @@ func repositoryFiles(ctx context.Context, root string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	dir, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
 	seen := make(map[string]bool)
 	files := []string{}
 	for _, name := range strings.Split(string(data), "\x00") {
 		if validFilePath(name) && !seen[name] {
 			seen[name] = true
+			// The index retains unstaged deletions. Only list paths on disk,
+			// using Lstat so dangling symbolic links remain browseable.
+			if _, err := dir.Lstat(name); err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					continue
+				}
+				return nil, err
+			}
 			files = append(files, name)
 		}
 	}

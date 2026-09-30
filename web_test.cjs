@@ -45,7 +45,7 @@ function setup(changes = []) {
     },
   });
   vm.runInContext(fs.readFileSync('web/app.js', 'utf8'), context);
-  return { nodes, context, calls, snapshot };
+  return { nodes, context, calls, snapshot, paths };
 }
 
 test('browse folders and unchanged files, then return to diffs', async () => {
@@ -103,6 +103,23 @@ test('refresh reloads the file tree and selected preview', async () => {
   assert.deepEqual(calls, ['/api/refresh', '/api/files', '/api/file?path=unchanged.txt']);
   assert.equal(nodes.get('files-view').attributes['aria-pressed'], 'true');
   assert.equal(nodes.get('refresh').disabled, false);
+});
+
+test('refresh removes a deleted file and clears its selected preview', async () => {
+  const { nodes, calls, paths } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  paths.shift();
+  calls.length = 0;
+  nodes.get('refresh').listeners.click();
+  await tick();
+  assert.deepEqual(calls, ['/api/refresh', '/api/files']);
+  assert.equal(nodes.get('files').querySelectorAll('.tree-file').length, 0);
+  assert.match(nodes.get('diffs').children[0].textContent, /Select a file/);
+  assert.equal(nodes.get('diffs').attributes['aria-busy'], 'false');
 });
 
 test('only the selected diff is displayed and highlighted', async () => {
