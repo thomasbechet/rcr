@@ -12,6 +12,8 @@ cd /path/to/your/repository
 
 Open `http://127.0.0.1:8080`. RCR discovers the repository from its working directory (including when started in a subdirectory) and shows repository-wide unstaged, staged, and untracked changes. Ignored files are excluded. **Refresh** collects a new snapshot; there is no polling. Failed refreshes preserve the previous snapshot.
 
+Click a file in the changed-file list to view its diff. Only the selected diff is displayed, and its sidebar entry is highlighted. Refresh keeps the selection and updates its diff; if the change disappears, select another file. Staged and unstaged changes for the same path are separate selections.
+
 Switch to **Files** to browse expandable folders and view current file contents with line numbers, including unchanged tracked files and non-ignored untracked files. Click **Changes** to return to diffs. File contents are read on selection; **Refresh** also reloads the file tree and selected preview. Deleted tracked files remain listed but cannot be opened. Ignored untracked files and Git metadata are not exposed.
 
 ## Remote access

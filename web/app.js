@@ -6,6 +6,7 @@ const statuses = { M: 'Modified', A: 'Added', D: 'Deleted', R: 'Renamed', C: 'Co
 let currentSnapshot = null;
 let view = 'changes';
 let selectedPath = null;
+let selectedChange = null;
 let fileRequest = 0;
 let treeRequest = 0;
 const openFolders = new Set();
@@ -51,32 +52,46 @@ function render(data) {
   $('files').replaceChildren(); $('diffs').replaceChildren();
   if (!data.changes.length) {
     $('diffs').append(element('div', 'empty', 'Working tree is clean. Refresh to check for changes.'));
+    selectedChange = null;
     return;
   }
-  let index = 0;
+  let selection = null;
   for (const [section, label] of Object.entries(labels)) {
     const changes = data.changes.filter(c => c.section === section);
     if (!changes.length) continue;
     $('files').append(element('h2', '', `${label} · ${changes.length}`));
-    $('diffs').append(element('h2', 'section-heading', label));
     for (const change of changes) {
-      const id = `file-${index++}`;
-      const link = element('a', 'file-link'); link.href = `#${id}`;
+      const key = JSON.stringify([change.section, change.path]);
+      const link = element('button', 'file-link'); link.type = 'button'; link.dataset.change = key;
       link.append(element('span', `badge status-${change.status}`, change.status), element('span', 'path', change.path));
       link.title = change.oldPath ? `${change.oldPath} → ${change.path}` : change.path;
-      link.addEventListener('click', () => { document.getElementById(id).open = true; });
+      link.addEventListener('click', () => showChange(change));
       $('files').append(link);
-      const details = element('details', 'file'); details.id = id; details.open = true;
-      const summary = element('summary');
-      summary.append(element('span', `badge status-${change.status}`, statuses[change.status] || change.status), element('span', 'path', change.oldPath ? `${change.oldPath} → ${change.path}` : change.path));
-      details.append(summary);
-      if (change.notice) details.append(element('p', 'notice', change.notice));
-      if (change.diff) {
-        const scroll = element('div', 'patch-scroll'); scroll.append(renderPatch(change.diff)); details.append(scroll);
-      } else if (!change.notice) details.append(element('p', 'notice', 'No textual changes (file mode or metadata changed).'));
-      $('diffs').append(details);
+      if (key === selectedChange) selection = change;
     }
   }
+  if (selection) showChange(selection);
+  else {
+    selectedChange = null;
+    $('diffs').append(element('div', 'empty', 'Select a changed file to view its diff.'));
+  }
+}
+
+function showChange(change) {
+  selectedChange = JSON.stringify([change.section, change.path]);
+  for (const link of $('files').querySelectorAll('.file-link')) {
+    if (link.dataset.change === selectedChange) link.setAttribute('aria-current', 'true');
+    else link.removeAttribute('aria-current');
+  }
+  const panel = element('article', 'file');
+  const heading = element('h2', 'viewer-heading');
+  heading.append(element('span', `badge status-${change.status}`, `${labels[change.section]} · ${statuses[change.status] || change.status}`), element('span', 'path', change.oldPath ? `${change.oldPath} → ${change.path}` : change.path));
+  panel.append(heading);
+  if (change.notice) panel.append(element('p', 'notice', change.notice));
+  if (change.diff) {
+    const scroll = element('div', 'patch-scroll'); scroll.append(renderPatch(change.diff)); panel.append(scroll);
+  } else if (!change.notice) panel.append(element('p', 'notice', 'No textual changes (file mode or metadata changed).'));
+  $('diffs').replaceChildren(panel);
 }
 
 async function requestJSON(url) {

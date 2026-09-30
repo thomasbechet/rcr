@@ -26,9 +26,9 @@ class Node {
 }
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
-function setup() {
+function setup(changes = []) {
   const nodes = new Map();
-  const snapshot = { repository: '/repo', updatedAt: new Date().toISOString(), changes: [] };
+  const snapshot = { repository: '/repo', updatedAt: new Date().toISOString(), changes };
   const paths = ['unchanged.txt', 'src/new + #.js'];
   const calls = [];
   const context = vm.createContext({
@@ -45,7 +45,7 @@ function setup() {
     },
   });
   vm.runInContext(fs.readFileSync('web/app.js', 'utf8'), context);
-  return { nodes, context, calls };
+  return { nodes, context, calls, snapshot };
 }
 
 test('browse folders and unchanged files, then return to diffs', async () => {
@@ -103,4 +103,54 @@ test('refresh reloads the file tree and selected preview', async () => {
   assert.deepEqual(calls, ['/api/refresh', '/api/files', '/api/file?path=unchanged.txt']);
   assert.equal(nodes.get('files-view').attributes['aria-pressed'], 'true');
   assert.equal(nodes.get('refresh').disabled, false);
+});
+
+test('only the selected diff is displayed and highlighted', async () => {
+  const { nodes } = setup([
+    { path: 'first.txt', section: 'unstaged', status: 'M', diff: '@@ -1 +1 @@\n-old\n+new\n' },
+    { path: 'second.txt', section: 'untracked', status: '?', diff: '@@ -0,0 +1 @@\n+hello\n' },
+  ]);
+  await tick();
+  assert.equal(nodes.get('diffs').querySelectorAll('.file').length, 0);
+  assert.match(nodes.get('diffs').children[0].textContent, /Select a changed file/);
+  const links = nodes.get('files').querySelectorAll('.file-link');
+  links[1].listeners.click();
+  let panels = nodes.get('diffs').querySelectorAll('.file');
+  assert.equal(panels.length, 1);
+  assert.equal(panels[0].children[0].children[1].textContent, 'second.txt');
+  assert.equal(links[1].attributes['aria-current'], 'true');
+  assert.equal(links[0].attributes['aria-current'], undefined);
+  links[0].listeners.click();
+  panels = nodes.get('diffs').querySelectorAll('.file');
+  assert.equal(panels.length, 1);
+  assert.equal(panels[0].children[0].children[1].textContent, 'first.txt');
+  assert.equal(links[0].attributes['aria-current'], 'true');
+  assert.equal(links[1].attributes['aria-current'], undefined);
+  assert.equal(nodes.has('collapse-all'), false);
+});
+
+test('refresh preserves the selected section and clears vanished changes', async () => {
+  const { nodes, snapshot } = setup([
+    { path: 'same.txt', section: 'unstaged', status: 'M', diff: '+working tree\n' },
+    { path: 'same.txt', section: 'staged', status: 'M', diff: '+index\n' },
+  ]);
+  await tick();
+  nodes.get('files').querySelectorAll('.file-link')[1].listeners.click();
+  snapshot.changes[1].diff = '+updated index\n';
+  nodes.get('refresh').listeners.click();
+  await tick();
+  const panel = nodes.get('diffs').querySelectorAll('.file')[0];
+  assert.match(panel.children[0].children[0].textContent, /Staged/);
+  assert.equal(panel.children[1].children[0].children[0].children[0].children[2].textContent, '+updated index');
+  assert.equal(nodes.get('files').querySelectorAll('.file-link')[1].attributes['aria-current'], 'true');
+  nodes.get('files-view').listeners.click();
+  await tick();
+  nodes.get('changes-view').listeners.click();
+  assert.equal(nodes.get('diffs').querySelectorAll('.file').length, 1);
+  snapshot.changes.pop();
+  nodes.get('refresh').listeners.click();
+  await tick();
+  assert.equal(nodes.get('diffs').querySelectorAll('.file').length, 0);
+  assert.match(nodes.get('diffs').children[0].textContent, /Select a changed file/);
+  assert.equal(nodes.get('files').querySelectorAll('.file-link')[0].attributes['aria-current'], undefined);
 });
