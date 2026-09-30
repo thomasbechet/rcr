@@ -16,6 +16,8 @@ Click a file in the changed-file list to view its diff. Only the selected diff i
 
 Each changed file shows green **+added** and red **−deleted** line totals in the sidebar and diff heading. Counts exclude diff metadata and context lines; binary and metadata-only changes show zero textual changes.
 
+The compact header stays visible while the file list and content pane scroll independently. Long repository paths are shortened visually; hover to see the full path. On narrow screens the header uses two rows.
+
 Switch to **Files** to browse expandable folders and view current file contents with line numbers, including unchanged tracked files and non-ignored untracked files. Click **Changes** to return to diffs. File contents are read on selection; **Refresh** also reloads the file tree and selected preview. Deleted tracked files remain listed but cannot be opened. Ignored untracked files and Git metadata are not exposed.
 
 ## Remote access

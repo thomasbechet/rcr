@@ -66,6 +66,7 @@ function renderPatch(text) {
 function render(data) {
   currentSnapshot = data;
   $('repository').textContent = data.repository;
+  $('repository').title = data.repository;
   $('updated').textContent = `Updated ${new Date(data.updatedAt).toLocaleTimeString()}`;
   $('summary').textContent = `${data.changes.length} changed file${data.changes.length === 1 ? '' : 's'}`;
   if (view !== 'changes') return;
