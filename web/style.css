@@ -87,18 +87,19 @@ summary .badge { margin-right: 8px; }
 }
 /* Also cover touch-enabled tablets/laptops, not just narrow phone screens. */
 @media (max-width: 760px), (any-pointer: coarse) {
-  nav { padding: 4px; overscroll-behavior: contain; scroll-padding-block: 4px; }
-  nav h2 { padding: 6px 10px; font-size: 12px; line-height: 18px; }
-  .tree-file, .tree-folder summary, .file-link { min-height: 44px; padding: 12px 10px; font-size: 14px; line-height: 20px; border-radius: 5px; }
+  nav { padding: 2px; overscroll-behavior: contain; scroll-padding-block: 2px; }
+  nav h2 { padding: 4px 8px; font-size: 11px; line-height: 16px; }
+  .tree-file, .tree-folder summary, .file-link { min-height: 36px; padding: 8px; font-size: 13px; line-height: 20px; border-radius: 4px; }
   .tree-folder summary { user-select: none; }
-  .tree-children { margin-left: 10px; padding-left: 12px; border-left: 1px solid #2a3545; }
-  .file-link { gap: 8px; }
-  nav .badge, nav .diff-stats { font-size: 12px; }
-  .view-switch { gap: 8px; }
-  .view-switch button, #refresh { min-width: 44px; min-height: 44px; padding: 8px 12px; font-size: 14px; }
+  .tree-children { margin-left: 8px; padding-left: 8px; border-left: 1px solid #2a3545; }
+  .file-link { gap: 6px; }
+  nav .badge, nav .diff-stats { font-size: 11px; }
+  .view-switch { gap: 4px; }
+  .view-switch button, #refresh { min-width: 36px; min-height: 32px; padding: 6px 10px; font-size: 13px; }
   .source { line-height: 22px; }
   .line-number { min-width: 44px; min-height: 22px; touch-action: manipulation; -webkit-touch-callout: none; }
-  .viewer-heading .copy-lines { min-height: 44px; padding: 8px 12px; font-size: 14px; touch-action: manipulation; }
+  .viewer-heading { padding: 6px 8px; gap: 4px; }
+  .viewer-heading .open-in-files, .viewer-heading .copy-lines { min-height: 32px; padding: 6px 8px; font-size: 12px; touch-action: manipulation; }
 }
 @media (min-width: 761px) and (any-pointer: coarse) {
   main { grid-template-columns: 280px minmax(0, 1fr); }
