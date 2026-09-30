@@ -88,9 +88,9 @@ summary .badge { margin-right: 8px; }
   .view-switch { grid-column: 1 / 3; grid-row: 2; }
   #summary { grid-column: 3; grid-row: 2; text-align: right; }
   #updated { display: none; }
-  main { display: flex; flex-direction: column; }
-  nav { flex-shrink: 0; max-height: min(360px, 40vh); max-height: min(360px, 40dvh); border-right: 0; border-bottom: 1px solid #2a3545; }
-  #diffs { flex: 1; padding: 4px 8px; }
+  main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 2fr); }
+  nav { border-right: 0; border-bottom: 1px solid #2a3545; }
+  #diffs { padding: 4px 8px; }
   #error { margin: 8px; }
   .view-switch button { min-height: 32px; }
 }

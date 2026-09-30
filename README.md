@@ -22,7 +22,7 @@ Each changed file shows green **+added** and red **−deleted** line totals in t
 
 The compact header stays visible while the file list and content pane scroll independently. Long repository paths are shortened visually; hover to see the full path. On narrow screens the header uses two rows.
 
-On narrow screens and touch-enabled devices, folder and file rows use compact 36-pixel tap targets, with 32-pixel-high navigation and viewer buttons. Tap anywhere on a folder row to expand or collapse it. Indentation guides clarify nested folders, and the phone layout gives the independently scrollable tree up to 40% of the screen height. Mouse-only desktop layouts remain unchanged.
+On narrow screens and touch-enabled devices, folder and file rows use compact 36-pixel tap targets, with 32-pixel-high navigation and viewer buttons. Tap anywhere on a folder row to expand or collapse it. Indentation guides clarify nested folders. The phone layout splits the content area into one-third tree view and two-thirds code, with independent scrolling. Desktop sidebar sizing remains unchanged.
 
 Switch to **Files** to browse expandable folders and view current file contents with line numbers, including unchanged tracked files and non-ignored untracked files. Click **Changes** to return to diffs. File contents are read on selection; **Refresh** also reloads the file tree and selected preview. Paths removed from disk are excluded from Files; their deletion diffs remain available in Changes. Ignored untracked files and Git metadata are not exposed.
 
