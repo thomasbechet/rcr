@@ -20,6 +20,8 @@ The compact header stays visible while the file list and content pane scroll ind
 
 Switch to **Files** to browse expandable folders and view current file contents with line numbers, including unchanged tracked files and non-ignored untracked files. Click **Changes** to return to diffs. File contents are read on selection; **Refresh** also reloads the file tree and selected preview. Paths removed from disk are excluded from Files; their deletion diffs remain available in Changes. Ignored untracked files and Git metadata are not exposed.
 
+File previews include lightweight syntax highlighting for Go, Zig, JavaScript/TypeScript (including JSX/TSX), Python, Rust, C/C++, Java, C#, Ruby, shell scripts, SQL, JSON, YAML, CSS/SCSS/Less, and HTML/XML/SVG. Languages are selected by file extension; Python and shell shebangs are also recognized. Other files remain plain text. Highlighting is lexical, not a full parser; embedded languages and template expressions are not highlighted separately.
+
 ## Remote access
 
 Run `rcr 127.0.0.1:8080` on the remote machine, then forward its port from your local machine:

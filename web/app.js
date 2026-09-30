@@ -195,11 +195,14 @@ async function showFile(path) {
       const scroll = element('div', 'patch-scroll');
       const table = element('table', 'patch source');
       const body = element('tbody');
-      const lines = file.content.split('\n');
-      if (lines.at(-1) === '') lines.pop();
+      const lines = sourceTokenLines(file.content, file.path);
       lines.forEach((line, index) => {
         const row = element('tr');
-        row.append(element('td', 'number', index + 1), element('td', 'code', line));
+        const code = element('td', 'code');
+        if (line.some(token => token.kind)) {
+          for (const token of line) code.append(element('span', token.kind ? `syntax-${token.kind}` : '', token.text));
+        } else code.textContent = line.map(token => token.text).join('');
+        row.append(element('td', 'number', index + 1), code);
         body.append(row);
       });
       table.append(body); scroll.append(table); panel.append(scroll);

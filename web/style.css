@@ -48,6 +48,11 @@ summary .badge { margin-right: 8px; }
 .patch td { padding: 0 6px; vertical-align: top; }
 .number { text-align: right; color: #8c9eb1; width: 36px; min-width: 36px; user-select: none; border-right: 1px solid #ffffff0b; }
 .code { white-space: pre; tab-size: 4; }
+.syntax-keyword { color: #c4a5f5; }
+.syntax-type, .syntax-builtin, .syntax-property { color: #8bc5ff; }
+.syntax-string { color: #80d5a1; }
+.syntax-number, .syntax-literal { color: #edc780; }
+.syntax-comment { color: #8c9eb1; }
 .addition { background: #143425; color: #b4e8c7; }
 .deletion { background: #3c2027; color: #f4b8bd; }
 .hunk { background: #1b2d44; color: #93bde9; }

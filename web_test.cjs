@@ -44,6 +44,7 @@ function setup(changes = []) {
       return { ok: true, json: async () => data };
     },
   });
+  vm.runInContext(fs.readFileSync('web/syntax.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('web/app.js', 'utf8'), context);
   return { nodes, context, calls, snapshot, paths };
 }
@@ -256,4 +257,118 @@ test('refresh preserves the selected section and clears vanished changes', async
   assert.equal(nodes.get('diffs').querySelectorAll('.file').length, 0);
   assert.match(nodes.get('diffs').children[0].textContent, /Select a changed file/);
   assert.equal(nodes.get('files').querySelectorAll('.file-link')[0].attributes['aria-current'], undefined);
+});
+
+test('Go and Zig source lexers preserve text and highlight language tokens', async () => {
+  const { context } = setup();
+  await tick();
+  const cases = [
+    {
+      path: 'main.go',
+      content: 'package main\n/* func\nvar */\nfunc main() {\n\ts := `first\n<script>second</script>`\n\tprintln("hello\\\"world", 0xff, 1.5e-2, true) // comment\n}\n',
+      expected: { package: 'keyword', func: 'keyword', println: 'builtin', '0xff': 'number', '1.5e-2': 'number', true: 'literal', '/* func\nvar */': 'comment', '`first\n<script>second</script>`': 'string', '"hello\\\"world"': 'string' },
+    },
+    {
+      path: 'main.zig',
+      content: 'const std = @import("std");\npub fn main() void {\n\tconst value: u32 = 0xff; // comment\n\tconst text =\n\t  \\\\<script>first</script>\n\t  \\\\second\n\t;\n\t_ = @as(f64, 1.5e-2);\n}\n',
+      expected: { const: 'keyword', pub: 'keyword', fn: 'keyword', void: 'type', u32: 'type', f64: 'type', '@import': 'builtin', '@as': 'builtin', '"std"': 'string', '0xff': 'number', '1.5e-2': 'number', '\\\\<script>first</script>': 'string' },
+    },
+  ];
+  for (const { path, content, expected } of cases) {
+    context.sourcePath = path; context.sourceContent = content;
+    const tokens = vm.runInContext('sourceTokens(sourceContent, sourcePath)', context);
+    assert.equal(tokens.map(token => token.text).join(''), content);
+    for (const [text, kind] of Object.entries(expected)) {
+      assert.equal(tokens.find(token => token.text === text)?.kind, kind, text);
+    }
+    const lines = vm.runInContext('sourceTokenLines(sourceContent, sourcePath)', context);
+    assert.equal(lines.map(line => line.map(token => token.text).join('')).join('\n') + '\n', content);
+    assert.equal(lines.length, content.split('\n').length - 1);
+  }
+});
+
+test('unsupported files stay plain and incomplete multiline tokens retain their contents', async () => {
+  const { context } = setup();
+  await tick();
+  context.sourceContent = 'const x = "<script>";\n';
+  let tokens = vm.runInContext('sourceTokens(sourceContent, "notes.txt")', context);
+  assert.equal(tokens.length, 1);
+  assert.equal(tokens[0].kind, '');
+  for (const content of ['/* unfinished\ncomment', '`unfinished\nstring']) {
+    context.sourceContent = content;
+    tokens = vm.runInContext('sourceTokens(sourceContent, "main.go")', context);
+    assert.equal(tokens.length, 1);
+    assert.equal(tokens[0].text, content);
+    assert.equal(tokens[0].kind, content.startsWith('/*') ? 'comment' : 'string');
+  }
+});
+
+test('file previews render highlighted source safely with unchanged line numbers', async () => {
+  const { nodes, context } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  context.fetch = async () => ({ ok: true, json: async () => ({ path: 'main.go', content: 'package main\nvar s = `<script>\nunsafe</script>`\n' }) });
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const rows = nodes.get('diffs').querySelectorAll('.source')[0].children[0].children;
+  assert.equal(rows.length, 3);
+  assert.deepEqual(rows.map(row => row.children[0].textContent), [1, 2, 3]);
+  assert.equal(rows[0].querySelectorAll('.syntax-keyword')[0].textContent, 'package');
+  assert.equal(rows[1].querySelectorAll('.syntax-string')[0].textContent, '`<script>');
+  assert.equal(rows[2].querySelectorAll('.syntax-string')[0].textContent, 'unsafe</script>`');
+  assert.ok(rows.every(row => row.children[1].children.every(node => node.tag === 'span')));
+});
+
+test('common languages highlight their comments, strings, keywords, and builtins', async () => {
+  const { context } = setup();
+  await tick();
+  const cases = [
+    ['app.js', 'export const x = `hello\nworld`; // note\nconsole.log(true);', { export: 'keyword', '`hello\nworld`': 'string', '// note': 'comment', console: 'builtin', true: 'literal' }],
+    ['app.tsx', 'interface User { name: string }\nconst view = "<script>";', { interface: 'keyword', string: 'type', '"<script>"': 'string' }],
+    ['app.py', 'def greet():\n  text = f"""hello\nworld""" # note\n  print(True)', { def: 'keyword', 'f"""hello\nworld"""': 'string', '# note': 'comment', print: 'builtin', True: 'literal' }],
+    ['app.rs', 'fn main() { let x: u32 = 42; println!(r##"a "quote""##); } // note', { fn: 'keyword', u32: 'type', '42': 'number', 'println!': 'builtin', 'r##"a "quote""##': 'string', '// note': 'comment' }],
+    ['app.cpp', '#include <stdio.h>\nint main() { return 0; } /* note\nend */', { '#include': 'builtin', int: 'type', return: 'keyword', '/* note\nend */': 'comment' }],
+    ['App.java', 'public class App { boolean ok = true; String s = "hello"; }', { public: 'keyword', class: 'keyword', boolean: 'type', true: 'literal', '"hello"': 'string' }],
+    ['App.cs', 'namespace App { public string Name = null; }', { namespace: 'keyword', public: 'keyword', string: 'type', null: 'literal' }],
+    ['app.rb', 'def hello\n  puts "hi" # note\nend', { def: 'keyword', puts: 'builtin', '"hi"': 'string', '# note': 'comment', end: 'keyword' }],
+    ['app.sh', '#!/bin/sh\nif test "$HOME"; then echo ${USER}; fi # note', { if: 'keyword', test: 'builtin', '"$HOME"': 'string', '${USER}': 'builtin', '# note': 'comment' }],
+    ['query.sql', "SELECT * FROM users WHERE name = 'it''s safe' AND active = TRUE; -- note", { SELECT: 'keyword', FROM: 'keyword', "'it''s safe'": 'string', TRUE: 'literal', '-- note': 'comment' }],
+    ['data.json', '{"name": "<script>", "active": true, "count": 42}', { '"name"': 'property', '"<script>"': 'string', true: 'literal', '42': 'number' }],
+    ['data.yml', 'name: "hello"\nactive: true # note', { name: 'property', '"hello"': 'string', true: 'literal', '# note': 'comment' }],
+    ['app.css', '/* note */\nbody { color: #80d5a1; content: "hello"; }', { '/* note */': 'comment', color: 'property', '#80d5a1': 'literal', '"hello"': 'string' }],
+    ['page.html', '<!-- note\nend --><div class="hello">&amp;</div>', { '<!-- note\nend -->': 'comment', '<div': 'keyword', class: 'property', '"hello"': 'string', '&amp;': 'literal' }],
+  ];
+  for (const [path, content, expected] of cases) {
+    context.sourcePath = path; context.sourceContent = content;
+    const tokens = vm.runInContext('sourceTokens(sourceContent, sourcePath)', context);
+    assert.equal(tokens.map(token => token.text).join(''), content, path);
+    for (const [text, kind] of Object.entries(expected)) {
+      assert.equal(tokens.find(token => token.text === text)?.kind, kind, `${path}: ${text}`);
+    }
+    const lines = vm.runInContext('sourceTokenLines(sourceContent, sourcePath)', context);
+    assert.equal(lines.map(line => line.map(token => token.text).join('')).join('\n'), content, path);
+  }
+});
+
+test('language aliases, uppercase extensions, and script shebangs select a lexer', async () => {
+  const { context } = setup();
+  await tick();
+  const cases = [
+    ['app.MJS', 'const'], ['app.cjs', 'const'], ['app.jsx', 'const'], ['app.mts', 'const'], ['app.cts', 'const'],
+    ['app.pyw', 'def'], ['app.c', 'return'], ['app.h', 'return'], ['app.hpp', 'return'], ['app.cc', 'return'], ['app.cxx', 'return'],
+    ['app.rake', 'def'], ['app.bash', 'if'], ['app.zsh', 'if'], ['app.jsonc', 'true'], ['app.yaml', 'true'],
+    ['app.scss', '@media'], ['app.less', '@media'], ['app.htm', '<div'], ['app.xml', '<node'], ['app.svg', '<svg'],
+    ['bin/script', '#!/usr/bin/env python3\ndef'], ['bin/script', '#!/usr/bin/env bash\nif'],
+  ];
+  for (const [path, content] of cases) {
+    context.sourcePath = path; context.sourceContent = content;
+    const tokens = vm.runInContext('sourceTokens(sourceContent, sourcePath)', context);
+    assert.ok(tokens.some(token => token.kind), path);
+    assert.equal(tokens.map(token => token.text).join(''), content, path);
+  }
+  // Object prototype names are not language registrations.
+  context.sourceContent = 'plain text';
+  const tokens = vm.runInContext('sourceTokens(sourceContent, "file.constructor")', context);
+  assert.equal(tokens[0].kind, '');
 });
