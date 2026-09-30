@@ -9,8 +9,8 @@
 </head>
 <body>
   <header><div><h1>RCR <span>Remote code review</span></h1><p id="repository">Loading repository…</p></div><button id="refresh" type="button">↻ Refresh</button></header>
-  <div class="toolbar"><span id="summary" role="status">Loading changes…</span><span id="updated"></span></div>
+  <div class="toolbar"><div class="view-switch" role="group" aria-label="View"><button id="changes-view" type="button" aria-pressed="true">Changes</button><button id="files-view" type="button" aria-pressed="false">Files</button></div><span id="summary" role="status">Loading changes…</span><span id="updated"></span></div>
   <p id="error" role="alert" hidden></p>
-  <main><nav id="files" aria-label="Changed files"></nav><section id="diffs" aria-label="Diffs"></section></main>
+  <main><nav id="files" aria-label="Changed files"></nav><section id="diffs" aria-label="Diffs" aria-busy="false"></section></main>
 </body>
 </html>

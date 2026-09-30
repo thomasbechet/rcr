@@ -210,12 +210,14 @@ type app struct {
 
 func (a *app) handler() http.Handler {
 	mux := http.NewServeMux()
-	for path, method := range map[string]string{"/api/diffs": "GET", "/api/refresh": "POST"} {
+	for path, method := range map[string]string{"/api/diffs": "GET", "/api/refresh": "POST", "/api/files": "GET", "/api/file": "GET"} {
 		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Allow", method)
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		})
 	}
+	mux.HandleFunc("GET /api/files", a.fileList)
+	mux.HandleFunc("GET /api/file", a.fileContent)
 	mux.HandleFunc("GET /api/diffs", func(w http.ResponseWriter, r *http.Request) {
 		a.mu.RLock()
 		defer a.mu.RUnlock()

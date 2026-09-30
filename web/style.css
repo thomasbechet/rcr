@@ -9,6 +9,17 @@ button { border: 1px solid #4d8bc9; border-radius: 5px; background: #203b57; col
 button:hover { background: #2b5075; } button:disabled { opacity: .6; cursor: wait; }
 button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid #8bc5ff; outline-offset: 3px; }
 .toolbar { display: flex; justify-content: space-between; gap: 12px; padding: 6px 16px; color: #9aaabd; font-size: 12px; border-bottom: 1px solid #2a3545; }
+.toolbar { align-items: center; flex-wrap: wrap; }
+.view-switch { display: flex; gap: 4px; }
+.view-switch button { padding: 3px 8px; font-size: 12px; background: transparent; border-color: #2a3545; }
+.view-switch button[aria-pressed="true"] { background: #203b57; border-color: #4d8bc9; }
+#summary { margin-right: auto; }
+.tree-folder summary { background: transparent; padding: 4px 6px; font-size: 12px; }
+.tree-children { padding-left: 12px; }
+.tree-file { display: block; width: 100%; padding: 4px 6px; border: 0; background: transparent; color: #dce5ef; text-align: left; font-size: 12px; white-space: normal; }
+.tree-file:hover, .tree-folder summary:hover { background: #1d2837; }
+.tree-file[aria-current="true"] { background: #203b57; color: #e5f2ff; }
+.viewer-heading { background: #192332; margin: 0; padding: 8px 10px; font-size: 12px; text-transform: none; letter-spacing: normal; color: #dce5ef; }
 main { display: grid; grid-template-columns: 220px minmax(0, 1fr); }
 nav { padding: 6px; border-right: 1px solid #2a3545; position: sticky; top: 0; max-height: 100vh; overflow: auto; align-self: start; }
 h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #9aaabd; padding: 4px 6px; margin: 8px 0 2px; }
@@ -34,3 +45,4 @@ summary .badge { margin-right: 8px; }
 .notice, .empty { color: #9aaabd; padding: 8px 10px; margin: 0; font-size: 12px; }
 #error { margin: 8px 16px; padding: 8px; background: #3c2027; color: #f4b8bd; border-radius: 5px; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 760px) { header { padding: 8px 12px; } h1 span { display: block; margin: 2px 0 0; } .toolbar { padding: 6px 12px; } main { display: block; } nav { position: static; max-height: 160px; border-right: 0; border-bottom: 1px solid #2a3545; } .file-link { min-height: 32px; align-items: center; } summary { min-height: 32px; padding: 8px; } #diffs { padding: 4px 8px 12px; } #error { margin: 8px; } }
+@media (max-width: 760px) { .tree-file, .tree-folder summary, .view-switch button { min-height: 32px; } }
