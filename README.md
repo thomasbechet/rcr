@@ -20,7 +20,7 @@ Click a file path in a diff or file-preview heading to copy its repository-relat
 
 Each changed file shows green **+added** and red **−deleted** line totals in the sidebar and diff heading. Counts exclude diff metadata and context lines; binary and metadata-only changes show zero textual changes.
 
-The compact header stays visible while the file list and content pane scroll independently. Long repository paths are shortened visually; hover to see the full path. On narrow screens the header uses two rows.
+The compact app header stays visible while the file list and content pane scroll independently. The file or diff heading also stays pinned at the top of the code pane while scrolling, keeping the path and copy/zoom controls accessible. Line selection and successful path or line copying do not add status text to this heading; copy failures are still shown. Long repository paths are shortened visually; hover to see the full path. On narrow screens the app header uses two rows.
 
 On narrow screens and touch-enabled devices, folder and file rows use compact 36-pixel tap targets, with 32-pixel-high navigation and viewer buttons. Tap anywhere on a folder row to expand or collapse it. Indentation guides clarify nested folders. The phone layout splits the content area into one-third tree view and two-thirds code, with independent scrolling. Desktop sidebar sizing remains unchanged.
 

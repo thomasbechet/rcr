@@ -2,7 +2,6 @@
 
 const $ = id => document.getElementById(id);
 const labels = { unstaged: 'Unstaged', staged: 'Staged', untracked: 'Untracked' };
-const statuses = { M: 'Modified', A: 'Added', D: 'Deleted', R: 'Renamed', C: 'Copied', T: 'Type changed', U: 'Unmerged', '?': 'New' };
 let currentSnapshot = null;
 let view = 'changes';
 let selectedPath = null;
@@ -63,9 +62,9 @@ async function writeClipboard(text) {
   }
 }
 
-async function copyText(text, feedback, message) {
-  feedback.textContent = 'Copying…';
-  try { await writeClipboard(text); feedback.textContent = message; }
+async function copyText(text, feedback) {
+  feedback.textContent = '';
+  try { await writeClipboard(text); feedback.textContent = ''; }
   catch { feedback.textContent = 'Could not copy. Select the text and copy manually.'; }
 }
 
@@ -79,7 +78,7 @@ function copyPathButton(path, feedback, label = path) {
   const button = element('button', 'path copy-path', label);
   button.type = 'button'; button.title = `Copy repository-relative path: ${path}`;
   button.setAttribute('aria-label', button.title);
-  button.addEventListener('click', () => copyText(path, feedback, 'Copied path'));
+  button.addEventListener('click', () => copyText(path, feedback));
   return button;
 }
 
@@ -208,7 +207,7 @@ function showChange(change) {
   const panel = element('article', 'file');
   const heading = element('h2', 'viewer-heading');
   const feedback = copyFeedback();
-  heading.append(element('span', `badge status-${change.status}`, `${labels[change.section]} · ${statuses[change.status] || change.status}`), copyPathButton(change.path, feedback, change.oldPath ? `${change.oldPath} → ${change.path}` : change.path), changeStats(change));
+  heading.append(copyPathButton(change.path, feedback, change.oldPath ? `${change.oldPath} → ${change.path}` : change.path), changeStats(change));
   const open = element('button', 'open-in-files', 'Open in Files');
   open.type = 'button'; open.title = `View current contents of ${change.path}`;
   open.addEventListener('click', () => openInFiles(change.path));
@@ -331,13 +330,13 @@ async function showFile(path) {
         });
         copy.disabled = false;
         copy.textContent = start === end ? `Copy line ${start + 1}` : `Copy lines ${start + 1}–${end + 1}`;
-        feedback.textContent = start === end ? `Selected line ${start + 1}` : `Selected lines ${start + 1}–${end + 1}`;
+        feedback.textContent = '';
       }
       copy.addEventListener('click', () => {
         if (start === null) return;
         // Preserve source whitespace and the selected final line's terminator.
         const text = rawLines.slice(start, end + 1).join('\n') + (end < rawLines.length - 1 ? '\n' : '');
-        copyText(text, feedback, start === end ? 'Copied line' : 'Copied lines');
+        copyText(text, feedback);
       });
       lines.forEach((line, index) => {
         const kind = changed.lines.get(index);

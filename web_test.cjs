@@ -209,14 +209,15 @@ test('only the selected diff is displayed and highlighted', async () => {
   links[1].listeners.click();
   let panels = nodes.get('diffs').querySelectorAll('.file');
   assert.equal(panels.length, 1);
-  assert.equal(panels[0].children[0].children[1].textContent, 'second.txt');
+  assert.equal(panels[0].querySelectorAll('.copy-path')[0].textContent, 'second.txt');
+  assert.equal(panels[0].children[0].querySelectorAll('.badge').length, 0);
   assert.equal(panels[0].children[0].querySelectorAll('.stat-added')[0].textContent, '+1');
   assert.equal(links[1].attributes['aria-current'], 'true');
   assert.equal(links[0].attributes['aria-current'], undefined);
   links[0].listeners.click();
   panels = nodes.get('diffs').querySelectorAll('.file');
   assert.equal(panels.length, 1);
-  assert.equal(panels[0].children[0].children[1].textContent, 'first.txt');
+  assert.equal(panels[0].querySelectorAll('.copy-path')[0].textContent, 'first.txt');
   assert.equal(links[0].attributes['aria-current'], 'true');
   assert.equal(links[1].attributes['aria-current'], undefined);
   assert.equal(nodes.has('collapse-all'), false);
@@ -245,7 +246,7 @@ test('Open in Files reveals a nested renamed file and preserves the selected dif
   assert.equal(nodes.get('diffs').querySelectorAll('.copy-path')[0].textContent, path);
   nodes.get('changes-view').listeners.click();
   assert.equal(nodes.get('files').querySelectorAll('.file-link')[0].attributes['aria-current'], 'true');
-  assert.match(nodes.get('diffs').children[0].children[0].children[1].textContent, /old.go →/);
+  assert.match(nodes.get('diffs').querySelectorAll('.copy-path')[0].textContent, /old.go →/);
 });
 
 test('Open in Files supports unstaged, staged, and untracked changes', async () => {
@@ -318,7 +319,8 @@ test('refresh preserves the selected section and clears vanished changes', async
   nodes.get('refresh').listeners.click();
   await tick();
   const panel = nodes.get('diffs').querySelectorAll('.file')[0];
-  assert.match(panel.children[0].children[0].textContent, /Staged/);
+  assert.equal(panel.querySelectorAll('.copy-path')[0].textContent, 'same.txt');
+  assert.equal(panel.children[0].querySelectorAll('.badge').length, 0);
   assert.equal(panel.children[1].children[0].children[0].children[0].children[2].textContent, '+updated index');
   assert.equal(nodes.get('files').querySelectorAll('.file-link')[1].attributes['aria-current'], 'true');
   nodes.get('files-view').listeners.click();
@@ -457,7 +459,7 @@ test('header paths copy repository-relative paths in both views, including renam
   assert.equal(path.textContent, 'old.js → src/new + #.js');
   await path.listeners.click();
   assert.deepEqual(copied, ['src/new + #.js']);
-  assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, 'Copied path');
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, '');
   nodes.get('diffs').querySelectorAll('.open-in-files')[0].listeners.click();
   await tick();
   await nodes.get('diffs').querySelectorAll('.copy-path')[0].listeners.click();
@@ -516,7 +518,7 @@ test('keyboard line selection extends ranges and preserves trailing newlines', a
   nodes.get('diffs').querySelectorAll('.copy-lines')[0].listeners.click();
   await tick();
   assert.equal(copied.at(-1), '<script>safe text</script>\nsecond line\n');
-  assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, 'Copied lines');
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, '');
 });
 
 test('mobile range selection uses long-press without an extra range button', async () => {
@@ -648,7 +650,7 @@ test('clipboard fallback cleans up and reports success or failure without changi
   assert.equal(buffers[0].selected, true);
   assert.equal(body.children.length, 0);
   assert.equal(active.focused, true);
-  assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, 'Copied path');
+  assert.equal(nodes.get('diffs').querySelectorAll('.copy-feedback')[0].textContent, '');
   context.navigator = undefined; // Non-secure remote HTTP can lack the modern API.
   context.document.execCommand = () => false;
   await path.listeners.click();
@@ -899,4 +901,32 @@ test('two-finger pinch zooms code, cancels line presses, and leaves one-finger s
   scroll.listeners.touchstart(gesture(0));
   scroll.listeners.touchmove(gesture(100));
   assert.equal(table.style.fontSize, '3px');
+});
+
+test('line selection and successful copying stay silent, but copy errors remain visible', async () => {
+  const { nodes, context, copied } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const feedback = nodes.get('diffs').querySelectorAll('.copy-feedback')[0];
+  await nodes.get('diffs').querySelectorAll('.copy-path')[0].listeners.click();
+  assert.equal(feedback.textContent, '');
+  const lines = nodes.get('diffs').querySelectorAll('.line-number');
+  lines[0].listeners.click();
+  assert.equal(feedback.textContent, '');
+  lines[1].listeners.click({ shiftKey: true });
+  assert.equal(feedback.textContent, '');
+  const copy = nodes.get('diffs').querySelectorAll('.copy-lines')[0];
+  assert.equal(copy.textContent, 'Copy lines 1–2');
+  copy.listeners.click();
+  assert.equal(feedback.textContent, '');
+  await tick();
+  assert.equal(feedback.textContent, '');
+  assert.equal(copied.at(-1), '<script>safe text</script>\nsecond line\n');
+  vm.runInContext('writeClipboard = async () => { throw new Error("Clipboard unavailable"); }', context);
+  copy.listeners.click();
+  await tick();
+  assert.match(feedback.textContent, /Could not copy/);
 });

@@ -21,7 +21,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .tree-file[aria-current="true"] { background: #203b57; color: #e5f2ff; }
 .tree-file.tree-added, .tree-folder summary.tree-added { color: #80d5a1; }
 .tree-file.tree-modified, .tree-folder summary.tree-modified { color: #edc780; }
-.viewer-heading { background: #192332; margin: 0; padding: 8px 10px; font-size: 12px; text-transform: none; letter-spacing: normal; color: #dce5ef; }
+.viewer-heading { position: sticky; top: 0; z-index: 2; background: #192332; margin: 0; padding: 8px 10px; font-size: 12px; text-transform: none; letter-spacing: normal; color: #dce5ef; }
 main { display: grid; grid-template-columns: 208px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
 nav { min-width: 0; min-height: 0; padding: 2px; border-right: 1px solid #2a3545; overflow: auto; }
 h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #9aaabd; padding: 4px 6px; margin: 8px 0 2px; }
@@ -51,7 +51,7 @@ nav .badge, nav .diff-stats { font-size: 10px; }
 .badge { flex-shrink: 0; font-size: 11px; color: #edc780; font-weight: 600; }
 .status-A, .status-\? { color: #80d5a1; } .status-D { color: #f49ca1; }
 #diffs { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 4px 12px; overflow: auto; }
-.file { flex: 1 0 auto; border: 1px solid #2a3545; border-radius: 5px; overflow: hidden; scroll-margin-top: 4px; }
+.file { flex: 1 0 auto; border: 1px solid #2a3545; border-radius: 5px; overflow: clip; scroll-margin-top: 4px; }
 summary { cursor: pointer; background: #192332; padding: 6px 10px; font-size: 12px; }
 summary .badge { margin-right: 8px; }
 .patch-scroll { overflow: auto; touch-action: pan-x pan-y; }
