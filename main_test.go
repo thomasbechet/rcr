@@ -234,3 +234,17 @@ func TestOutputLimit(t *testing.T) {
 		t.Fatal("output limit not enforced")
 	}
 }
+
+func TestParseListenAddress(t *testing.T) {
+	for _, address := range []string{"localhost:8080", "127.0.0.1:1", "0.0.0.0:65535", "review.example:9090", "[::1]:8080", "[::]:8080", "[fe80::1%lo]:8080"} {
+		got, err := parseListenAddress(address)
+		if err != nil || got != address {
+			t.Errorf("%q: got %q, %v", address, got, err)
+		}
+	}
+	for _, address := range []string{"", "8080", "localhost", ":8080", "localhost:", "localhost:0", "localhost:65536", "localhost:-1", "localhost:+8080", "localhost:http", "localhost:99999999999999999999", "::1:8080", "http://localhost:8080", "host name:8080", "localhost:8080/path"} {
+		if got, err := parseListenAddress(address); err == nil {
+			t.Errorf("accepted %q as %q", address, got)
+		}
+	}
+}

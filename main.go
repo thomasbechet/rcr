@@ -258,10 +258,31 @@ func (a *app) handler() http.Handler {
 	})
 }
 
+func parseListenAddress(value string) (string, error) {
+	host, portText, err := net.SplitHostPort(value)
+	if err != nil {
+		return "", errors.New("address must be hostname:port, for example localhost:8080 or [::1]:8080")
+	}
+	if host == "" || strings.ContainsAny(host, " \t\r\n/?#@\\") {
+		return "", errors.New("a hostname or IP address is required; use 0.0.0.0 explicitly to listen on all IPv4 interfaces")
+	}
+	for _, digit := range portText {
+		if digit < '0' || digit > '9' {
+			return "", errors.New("port must be an integer between 1 and 65535")
+		}
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil || port < 1 || port > 65535 {
+		return "", errors.New("port must be an integer between 1 and 65535")
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port)), nil
+}
+
 func run() error {
 	flags := flag.NewFlagSet("rcr", flag.ContinueOnError)
-	listen := flags.String("listen", "127.0.0.1", "listen address (non-loopback exposes source code without authentication)")
-	flags.Usage = func() { fmt.Fprintln(flags.Output(), "Usage: rcr [--listen address] <port>"); flags.PrintDefaults() }
+	flags.Usage = func() {
+		fmt.Fprintln(flags.Output(), "Usage: rcr <hostname:port>\nExample: rcr localhost:8080\nNon-loopback addresses expose source code without authentication.")
+	}
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -270,11 +291,11 @@ func run() error {
 	}
 	if flags.NArg() != 1 {
 		flags.Usage()
-		return errors.New("exactly one port is required")
+		return errors.New("exactly one hostname:port argument is required")
 	}
-	port, err := strconv.Atoi(flags.Arg(0))
-	if err != nil || port < 1 || port > 65535 {
-		return errors.New("port must be an integer between 1 and 65535")
+	address, err := parseListenAddress(flags.Arg(0))
+	if err != nil {
+		return err
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -292,13 +313,11 @@ func run() error {
 		return err
 	}
 	a := &app{root: root, current: s}
-	address := net.JoinHostPort(*listen, strconv.Itoa(port))
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
 	}
-	ip := net.ParseIP(*listen)
-	if *listen != "localhost" && (ip == nil || !ip.IsLoopback()) {
+	if bound, ok := ln.Addr().(*net.TCPAddr); !ok || !bound.IP.IsLoopback() {
 		log.Print("WARNING: source code is exposed without authentication; use only on a trusted network")
 	}
 	log.Printf("RCR: http://%s — %s", address, root)

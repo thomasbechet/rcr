@@ -7,10 +7,10 @@ A read-only web viewer for local Git changes. One executable, embedded web UI, n
 ```sh
 go build -o rcr .
 cd /path/to/your/repository
-/path/to/rcr 8080
+/path/to/rcr localhost:8080
 ```
 
-Open `http://127.0.0.1:8080`. RCR discovers the repository from its working directory (including when started in a subdirectory) and shows repository-wide unstaged, staged, and untracked changes. Ignored files are excluded. **Refresh** collects a new snapshot; there is no polling. Failed refreshes preserve the previous snapshot.
+Open `http://localhost:8080`. Pass exactly one `hostname:port` argument. IPv4 (`127.0.0.1:8080`) and bracketed IPv6 (`[::1]:8080`) are also supported; ports must be between 1 and 65535. The previous port-only and `--listen` syntax is no longer supported. RCR discovers the repository from its working directory (including when started in a subdirectory) and shows repository-wide unstaged, staged, and untracked changes. Ignored files are excluded. **Refresh** collects a new snapshot; there is no polling. Failed refreshes preserve the previous snapshot.
 
 Click a file in the changed-file list to view its diff. Only the selected diff is displayed, and its sidebar entry is highlighted. Refresh keeps the selection and updates its diff; if the change disappears, select another file. Staged and unstaged changes for the same path are separate selections.
 
@@ -20,7 +20,7 @@ Switch to **Files** to browse expandable folders and view current file contents 
 
 ## Remote access
 
-Run RCR on the remote machine, then forward its port from your local machine:
+Run `rcr 127.0.0.1:8080` on the remote machine, then forward its port from your local machine:
 
 ```sh
 ssh -L 8080:127.0.0.1:8080 user@remote-host
@@ -29,10 +29,10 @@ ssh -L 8080:127.0.0.1:8080 user@remote-host
 For a trusted network only, opt into direct access:
 
 ```sh
-rcr --listen 0.0.0.0 8080
+rcr 0.0.0.0:8080
 ```
 
-**There is no authentication or TLS. Direct access exposes source code and repository paths.** Prefer an SSH tunnel. Flags go before the port. Ctrl+C stops the server.
+**There is no authentication or TLS. Direct access exposes source code and repository paths.** Prefer an SSH tunnel and bind to `localhost` or a loopback IP. Ctrl+C stops the server. Use `rcr --help` for usage.
 
 ## Behavior and limits
 
