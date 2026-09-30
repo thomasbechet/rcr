@@ -14,6 +14,8 @@ Open `http://localhost:8080`. Pass exactly one `hostname:port` argument. IPv4 (`
 
 Click a file in the changed-file list to view its diff. Only the selected diff is displayed, and its sidebar entry is highlighted. Refresh keeps the selection and updates its diff; if the change disappears, select another file. Staged and unstaged changes for the same path are separate selections.
 
+Click **Open in Files** in a diff heading to view the file's current contents in the Files tab. Its parent folders expand and its tree entry is selected and brought into view. Returning to Changes keeps your diff selection. Files no longer on disk show an unavailable notice instead; their diffs remain in Changes.
+
 Each changed file shows green **+added** and red **−deleted** line totals in the sidebar and diff heading. Counts exclude diff metadata and context lines; binary and metadata-only changes show zero textual changes.
 
 The compact header stays visible while the file list and content pane scroll independently. Long repository paths are shortened visually; hover to see the full path. On narrow screens the header uses two rows.

@@ -14,6 +14,8 @@ class Node {
   setAttribute(key, value) { this.attributes[key] = value; }
   removeAttribute(key) { delete this.attributes[key]; }
   addEventListener(name, callback) { this.listeners[name] = callback; }
+  focus() { this.focused = true; }
+  scrollIntoView(options) { this.scrolledIntoView = options; }
   get childElementCount() { return this.children.length; }
   querySelectorAll(selector) {
     const result = [];
@@ -213,6 +215,73 @@ test('only the selected diff is displayed and highlighted', async () => {
   assert.equal(links[0].attributes['aria-current'], 'true');
   assert.equal(links[1].attributes['aria-current'], undefined);
   assert.equal(nodes.has('collapse-all'), false);
+});
+
+test('Open in Files reveals a nested renamed file and preserves the selected diff', async () => {
+  const path = 'src/nested/new + #.go';
+  const { nodes, calls, paths } = setup([
+    { path, oldPath: 'old.go', section: 'staged', status: 'R', diff: '' },
+  ]);
+  paths.push(path);
+  await tick();
+  nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+  const open = nodes.get('diffs').querySelectorAll('.open-in-files')[0];
+  assert.equal(open.textContent, 'Open in Files');
+  calls.length = 0;
+  open.listeners.click();
+  await tick();
+  assert.equal(nodes.get('files-view').attributes['aria-pressed'], 'true');
+  assert.deepEqual(calls, ['/api/files', '/api/file?path=src%2Fnested%2Fnew%20%2B%20%23.go']);
+  assert.ok(nodes.get('files').querySelectorAll('.tree-folder').every(folder => folder.open));
+  const selected = nodes.get('files').querySelectorAll('.tree-file').find(button => button.dataset.path === path);
+  assert.equal(selected.attributes['aria-current'], 'true');
+  assert.equal(selected.focused, true);
+  assert.equal(selected.scrolledIntoView.block, 'nearest');
+  assert.equal(nodes.get('diffs').children[0].children[0].textContent, path);
+  nodes.get('changes-view').listeners.click();
+  assert.equal(nodes.get('files').querySelectorAll('.file-link')[0].attributes['aria-current'], 'true');
+  assert.match(nodes.get('diffs').children[0].children[0].children[1].textContent, /old.go →/);
+});
+
+test('Open in Files supports unstaged, staged, and untracked changes', async () => {
+  for (const [section, status] of [['unstaged', 'M'], ['staged', 'A'], ['untracked', '?']]) {
+    const { nodes, calls } = setup([{ path: 'unchanged.txt', section, status, diff: '' }]);
+    await tick();
+    nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+    nodes.get('diffs').querySelectorAll('.open-in-files')[0].listeners.click();
+    await tick();
+    assert.ok(calls.includes('/api/file?path=unchanged.txt'));
+    assert.equal(nodes.get('files').querySelectorAll('.tree-file')[0].attributes['aria-current'], 'true');
+  }
+});
+
+test('Open in Files explains unavailable files without requesting a missing preview', async () => {
+  const { nodes, calls } = setup([{ path: 'deleted.txt', section: 'unstaged', status: 'D', diff: '-gone\n' }]);
+  await tick();
+  nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+  calls.length = 0;
+  nodes.get('diffs').querySelectorAll('.open-in-files')[0].listeners.click();
+  await tick();
+  assert.deepEqual(calls, ['/api/files']);
+  assert.match(nodes.get('diffs').children[0].textContent, /deleted.txt is no longer available/);
+  assert.equal(nodes.get('diffs').attributes['aria-busy'], 'false');
+  nodes.get('changes-view').listeners.click();
+  assert.equal(nodes.get('files').querySelectorAll('.file-link')[0].attributes['aria-current'], 'true');
+});
+
+test('returning to Changes while navigation loads ignores the late tree response', async () => {
+  const { nodes, context } = setup([{ path: 'unchanged.txt', section: 'unstaged', status: 'M', diff: '' }]);
+  await tick();
+  nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+  let resolve;
+  context.fetch = () => new Promise(done => { resolve = done; });
+  nodes.get('diffs').querySelectorAll('.open-in-files')[0].listeners.click();
+  nodes.get('changes-view').listeners.click();
+  resolve({ ok: true, json: async () => ['unchanged.txt'] });
+  await tick();
+  assert.equal(nodes.get('changes-view').attributes['aria-pressed'], 'true');
+  assert.equal(nodes.get('files').querySelectorAll('.tree-file').length, 0);
+  assert.equal(nodes.get('files').querySelectorAll('.file-link')[0].attributes['aria-current'], 'true');
 });
 
 test('line totals count hunk content, not headers or context', async () => {

@@ -107,6 +107,10 @@ function showChange(change) {
   const panel = element('article', 'file');
   const heading = element('h2', 'viewer-heading');
   heading.append(element('span', `badge status-${change.status}`, `${labels[change.section]} · ${statuses[change.status] || change.status}`), element('span', 'path', change.oldPath ? `${change.oldPath} → ${change.path}` : change.path), changeStats(change));
+  const open = element('button', 'open-in-files', 'Open in Files');
+  open.type = 'button'; open.title = `View current contents of ${change.path}`;
+  open.addEventListener('click', () => openInFiles(change.path));
+  heading.append(open);
   panel.append(heading);
   if (change.notice) panel.append(element('p', 'notice', change.notice));
   if (change.diff) {
@@ -215,18 +219,29 @@ async function showFile(path) {
   }
 }
 
-async function loadFiles() {
+function openInFiles(path) {
+  selectedPath = path;
+  const parts = path.split('/');
+  for (let i = 1; i < parts.length; i++) openFolders.add(parts.slice(0, i).join('/') + '/');
+  setView('files', path);
+}
+
+async function loadFiles(revealPath = null) {
   const request = ++treeRequest;
   try {
     const paths = await requestJSON('/api/files');
     if (request !== treeRequest || view !== 'files') return;
     renderTree(paths);
+    if (revealPath) {
+      const button = [...$('files').querySelectorAll('.tree-file')].find(node => node.dataset.path === revealPath);
+      if (button) { button.focus({ preventScroll: true }); button.scrollIntoView({ block: 'nearest' }); }
+    }
     if (selectedPath && paths.includes(selectedPath)) await showFile(selectedPath);
     else {
       selectedPath = null;
       ++fileRequest;
       $('diffs').setAttribute('aria-busy', 'false');
-      $('diffs').replaceChildren(element('div', 'empty', paths.length ? 'Select a file to view its current contents.' : 'No repository files.'));
+      $('diffs').replaceChildren(element('div', 'empty', revealPath ? `${revealPath} is no longer available in the repository file list. Its diff is still available in Changes.` : paths.length ? 'Select a file to view its current contents.' : 'No repository files.'));
     }
   } catch (err) {
     if (request === treeRequest && view === 'files') {
@@ -235,7 +250,7 @@ async function loadFiles() {
   }
 }
 
-function setView(next) {
+function setView(next, revealPath = null) {
   if (view === next) return;
   view = next; ++fileRequest; ++treeRequest;
   $('diffs').setAttribute('aria-busy', 'false');
@@ -247,7 +262,7 @@ function setView(next) {
   else {
     $('files').replaceChildren(element('p', 'notice', 'Loading files…'));
     $('diffs').replaceChildren(element('div', 'empty', 'Select a file to view its current contents.'));
-    loadFiles();
+    loadFiles(revealPath);
   }
 }
 
