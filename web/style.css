@@ -37,6 +37,13 @@ nav .badge, nav .diff-stats { font-size: 10px; }
 .diff-stats { display: inline-flex; gap: 5px; flex-shrink: 0; margin-left: auto; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
 .stat-added { color: #80d5a1; }
 .stat-deleted { color: #f49ca1; }
+.history-branch { width: 100%; padding: 6px; background: #192332; color: #dce5ef; border: 1px solid #2a3545; font: inherit; font-size: 11px; }
+.commit-link { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 8px; border: 0; border-radius: 0; background: transparent; text-align: left; white-space: normal; overflow-wrap: anywhere; touch-action: manipulation; }
+.commit-link:hover { background: #1d2837; }
+.commit-link[aria-current="true"] { background: #203b57; }
+.commit-subject { font-size: 12px; }
+.commit-meta { color: #9aaabd; font-size: 10px; }
+.commit-refs { color: #80d5a1; font-size: 10px; }
 .viewer-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .viewer-heading .open-in-files, .viewer-heading .copy-lines { flex-shrink: 0; padding: 2px 6px; font-size: 11px; }
 .viewer-heading .copy-path { background: transparent; border: 0; padding: 0; color: inherit; text-align: left; white-space: normal; font-size: inherit; }

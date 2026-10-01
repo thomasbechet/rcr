@@ -32,6 +32,8 @@ Files previews also mark added lines in green and modified lines in amber, using
 
 Use **Ctrl + mouse wheel** over the code pane or a **two-finger pinch** on a phone to zoom the code text out or in (25%–200%). Click the percentage in the file or diff heading to reset to 100%. Ordinary wheel and one-finger gestures still scroll; zoom gestures inside the code pane scale only the code, including its line spacing, rather than the whole page. Navigation and toolbar sizes stay unchanged. Zoom is shared between Files and Changes and retained when selecting another file or refreshing, until the page is reloaded.
 
+Switch to **History** to browse the latest 100 commits on the current branch or select a local or remote branch. Commit entries show the subject, author, date, short hash, and branch/tag labels. Select a commit to see its metadata, file statistics, and patch; **Refresh** reloads the history and preserves a selected commit when available. Browsing history never checks out a branch or changes the working tree.
+
 ## Remote access
 
 Run `rcr 127.0.0.1:8080` on the remote machine, then forward its port from your local machine:
@@ -56,7 +58,7 @@ rcr 0.0.0.0:8080
 - Up to 500 changes, 4 MiB per Git command or untracked preview, 16 MiB total diff text, and 30 seconds per refresh. Oversized untracked files show a notice; exceeding other limits reports an error.
 - The file browser supports up to 20,000 inventory entries and 4 MiB per preview. Binary and oversized files show a notice. Symbolic links show their target path only; directory symlinks are not traversed. File previews are confined to the repository.
 - Git commands collect changes sequentially. Avoid editing while refreshing if you need a consistent snapshot.
-- Commit history, branch comparisons, and comments are outside the current scope.
+- History is limited to 100 commits per branch and 4 MiB per Git command. Branch comparisons and comments are outside the current scope.
 
 ## Test
 

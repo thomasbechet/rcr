@@ -590,6 +590,37 @@ function pressTimers(context) {
 }
 const touchDown = { pointerType: 'touch', pointerId: 1, isPrimary: true, button: 0, clientX: 20, clientY: 20 };
 
+test('history lists branches and commits, opens a diff, and ignores late responses', async () => {
+  const { nodes, context } = setup();
+  await tick();
+  const calls = [];
+  const commit = { hash: 'a'.repeat(40), subject: '<script>commit</script>', author: 'Test', date: '2026-01-01', parents: '', refs: 'HEAD -> main' };
+  context.fetch = async url => {
+    calls.push(url);
+    return { ok: true, json: async () => url.startsWith('/api/commit') ? { diff: 'diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -1 +1 @@\n-old\n+new\n' } : { branches: ['main', 'feature/test'], commits: [commit] } };
+  };
+  nodes.get('history-view').listeners.click();
+  await tick();
+  assert.equal(nodes.get('history-view').attributes['aria-pressed'], 'true');
+  let buttons = nodes.get('files').querySelectorAll('.commit-link');
+  assert.equal(buttons[0].children[0].textContent, commit.subject);
+  buttons[0].listeners.click();
+  await tick();
+  assert.equal(nodes.get('diffs').querySelectorAll('.stat-added')[0].textContent, '+1');
+  assert.equal(buttons[0].attributes['aria-current'], 'true');
+  const branch = nodes.get('files').querySelectorAll('.history-branch')[0];
+  branch.value = 'feature/test'; branch.listeners.change();
+  await tick();
+  assert.ok(calls.includes('/api/history?branch=feature%2Ftest'));
+  let resolve;
+  context.fetch = () => new Promise(done => { resolve = done; });
+  nodes.get('files').querySelectorAll('.commit-link')[0].listeners.click();
+  nodes.get('changes-view').listeners.click();
+  resolve({ ok: true, json: async () => ({ diff: '+late' }) });
+  await tick();
+  assert.match(nodes.get('diffs').children[0].textContent, /clean/);
+});
+
 test('long-press selects a range without the release click collapsing it', async () => {
   const { nodes, context, copied } = setup();
   await tick();

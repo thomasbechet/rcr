@@ -8,6 +8,7 @@ let selectedPath = null;
 let selectedChange = null;
 let fileRequest = 0;
 let treeRequest = 0;
+let historyBranch = '', selectedCommit = null;
 let codeFontSize = 12;
 const minCodeFontSize = 3, maxCodeFontSize = 24;
 const openFolders = new Set();
@@ -150,7 +151,9 @@ function renderPatch(text) {
   for (const line of lines) {
     const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
     let kind = 'meta', old = '', next = '';
-    if (hunk) {
+    if (line.startsWith('diff --git ')) {
+      oldLine = null; newLine = null;
+    } else if (hunk) {
       oldLine = Number(hunk[1]); newLine = Number(hunk[2]); kind = 'hunk';
     } else if (oldLine !== null && line.startsWith('+')) {
       kind = 'addition'; next = newLine++;
@@ -432,6 +435,65 @@ function openInFiles(path) {
   setView('files', path);
 }
 
+async function showCommit(commit) {
+  selectedCommit = commit.hash;
+  const request = ++fileRequest;
+  for (const button of $('files').querySelectorAll('.commit-link')) {
+    button.setAttribute('aria-current', String(button.dataset.hash === commit.hash));
+  }
+  $('diffs').setAttribute('aria-busy', 'true');
+  $('diffs').replaceChildren(element('p', 'notice', 'Loading commit…'));
+  try {
+    const data = await requestJSON('/api/commit?hash=' + encodeURIComponent(commit.hash));
+    if (request !== fileRequest || view !== 'history') return;
+    const panel = element('article', 'file');
+    const heading = element('h2', 'viewer-heading');
+    heading.append(element('span', 'path', commit.subject), lineStats(diffStats(data.diff)), codeZoomControls());
+    const scroll = codeScroll(); scroll.append(renderPatch(data.diff));
+    panel.append(heading, scroll);
+    $('diffs').replaceChildren(panel);
+    updateCodeZoom();
+  } catch (err) {
+    if (request === fileRequest && view === 'history') $('diffs').replaceChildren(element('p', 'notice', `Could not load commit: ${err.message}`));
+  } finally {
+    if (request === fileRequest) $('diffs').setAttribute('aria-busy', 'false');
+  }
+}
+
+async function loadHistory() {
+  const request = ++treeRequest;
+  ++fileRequest;
+  $('diffs').setAttribute('aria-busy', 'false');
+  $('files').replaceChildren(element('p', 'notice', 'Loading history…'));
+  try {
+    const data = await requestJSON('/api/history?branch=' + encodeURIComponent(historyBranch));
+    if (request !== treeRequest || view !== 'history') return;
+    const branch = element('select', 'history-branch');
+    branch.setAttribute('aria-label', 'Branch history');
+    const current = element('option', '', 'Current branch (HEAD)'); current.value = ''; branch.append(current);
+    for (const name of data.branches) {
+      const option = element('option', '', name); option.value = name; branch.append(option);
+    }
+    branch.value = historyBranch;
+    branch.addEventListener('change', () => { historyBranch = branch.value; selectedCommit = null; loadHistory(); });
+    $('files').replaceChildren(branch, element('h2', '', 'Recent commits · ' + data.commits.length));
+    $('diffs').replaceChildren(element('div', 'empty', data.commits.length ? 'Select a commit to view its diff. Showing up to 100 recent commits.' : 'No commits on this branch.'));
+    for (const commit of data.commits) {
+      const button = element('button', 'commit-link'); button.type = 'button'; button.dataset.hash = commit.hash;
+      button.append(element('span', 'commit-subject', commit.subject), element('span', 'commit-meta', `${commit.hash.slice(0, 8)} · ${commit.author} · ${new Date(commit.date).toLocaleDateString()}`));
+      if (commit.refs) button.append(element('span', 'commit-refs', commit.refs));
+      button.title = `${commit.hash}\n${commit.subject}\nParents: ${commit.parents || 'Root commit'}`;
+      button.addEventListener('click', () => showCommit(commit));
+      $('files').append(button);
+    }
+    const selection = data.commits.find(commit => commit.hash === selectedCommit);
+    if (selection) await showCommit(selection);
+    else selectedCommit = null;
+  } catch (err) {
+    if (request === treeRequest && view === 'history') $('files').replaceChildren(element('p', 'notice', `Could not load history: ${err.message}`));
+  }
+}
+
 async function loadFiles(revealPath = null) {
   const request = ++treeRequest;
   try {
@@ -462,9 +524,11 @@ function setView(next, revealPath = null) {
   $('diffs').setAttribute('aria-busy', 'false');
   $('changes-view').setAttribute('aria-pressed', String(view === 'changes'));
   $('files-view').setAttribute('aria-pressed', String(view === 'files'));
-  $('files').setAttribute('aria-label', view === 'changes' ? 'Changed files' : 'Repository files');
-  $('diffs').setAttribute('aria-label', view === 'changes' ? 'Diffs' : 'File contents');
+  $('history-view').setAttribute('aria-pressed', String(view === 'history'));
+  $('files').setAttribute('aria-label', view === 'history' ? 'Branch commits' : view === 'changes' ? 'Changed files' : 'Repository files');
+  $('diffs').setAttribute('aria-label', view === 'history' ? 'Commit diff' : view === 'changes' ? 'Diffs' : 'File contents');
   if (view === 'changes') { if (currentSnapshot) render(currentSnapshot); }
+  else if (view === 'history') loadHistory();
   else {
     $('files').replaceChildren(element('p', 'notice', 'Loading files…'));
     $('diffs').replaceChildren(element('div', 'empty', 'Select a file to view its current contents.'));
@@ -481,6 +545,7 @@ async function load(refresh = false) {
     if (!response.ok) throw new Error(await response.text());
     render(await response.json());
     if (view === 'files') await loadFiles();
+    if (view === 'history') await loadHistory();
   } catch (err) {
     $('error').textContent = `Could not load changes: ${err.message}`; $('error').hidden = false;
     if (!$('diffs').childElementCount) $('summary').textContent = 'Changes unavailable';
@@ -491,4 +556,5 @@ async function load(refresh = false) {
 $('refresh').addEventListener('click', () => load(true));
 $('changes-view').addEventListener('click', () => setView('changes'));
 $('files-view').addEventListener('click', () => setView('files'));
+$('history-view').addEventListener('click', () => setView('history'));
 load();
