@@ -30,7 +30,10 @@ function diffStats(text) {
 }
 
 function changeStats(change) {
-  const { added, deleted } = diffStats(change.diff);
+  return lineStats(diffStats(change.diff));
+}
+
+function lineStats({ added, deleted }) {
   const stats = element('span', 'diff-stats');
   stats.title = `${added} added lines, ${deleted} deleted lines`;
   stats.setAttribute('aria-label', stats.title);
@@ -168,7 +171,16 @@ function render(data) {
   $('repository').textContent = data.repository;
   $('repository').title = data.repository;
   $('updated').textContent = `Updated ${new Date(data.updatedAt).toLocaleTimeString()}`;
-  $('summary').textContent = `${data.changes.length} changed file${data.changes.length === 1 ? '' : 's'}`;
+  const totals = { added: 0, deleted: 0 };
+  for (const change of data.changes) {
+    const stats = diffStats(change.diff);
+    totals.added += stats.added;
+    totals.deleted += stats.deleted;
+  }
+  $('summary').replaceChildren(
+    element('span', '', `${data.changes.length} changed file${data.changes.length === 1 ? '' : 's'}`),
+    lineStats(totals),
+  );
   if (view !== 'changes') return;
   $('files').replaceChildren(); $('diffs').replaceChildren();
   if (!data.changes.length) {

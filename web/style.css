@@ -5,6 +5,7 @@ header { display: flex; align-items: center; gap: 10px; flex-shrink: 0; min-heig
 h1 { margin: 0; flex-shrink: 0; font-size: 17px; letter-spacing: -.5px; }
 #repository { flex: 1; min-width: 0; margin: 0; font: 11px ui-monospace, monospace; color: #9aaabd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #summary, #updated { flex-shrink: 0; color: #9aaabd; font-size: 11px; white-space: nowrap; }
+#summary { display: inline-flex; align-items: center; gap: 8px; }
 #refresh { padding: 4px 8px; font-size: 12px; }
 button { border: 1px solid #4d8bc9; border-radius: 5px; background: #203b57; color: #e5f2ff; padding: 6px 12px; cursor: pointer; white-space: nowrap; font: inherit; font-size: 13px; }
 button:hover { background: #2b5075; } button:disabled { opacity: .6; cursor: wait; }
@@ -86,7 +87,7 @@ summary .badge { margin-right: 8px; }
   #repository { grid-column: 2; grid-row: 1; }
   #refresh { grid-column: 3; grid-row: 1; min-height: 32px; }
   .view-switch { grid-column: 1 / 3; grid-row: 2; }
-  #summary { grid-column: 3; grid-row: 2; text-align: right; }
+  #summary { grid-column: 3; grid-row: 2; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
   #updated { display: none; }
   main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 2fr); }
   nav { border-right: 0; border-bottom: 1px solid #2a3545; }

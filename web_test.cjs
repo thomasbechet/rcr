@@ -308,6 +308,35 @@ test('line totals count hunk content, not headers or context', async () => {
   }
 });
 
+test('header totals aggregate all change sections and update in both views', async () => {
+  const { nodes, snapshot } = setup([
+    { path: 'same.txt', section: 'staged', status: 'M', diff: '--- a/same.txt\n+++ b/same.txt\n@@ -1 +1,2 @@\n-old\n+new\n+extra\n' },
+    { path: 'same.txt', section: 'unstaged', status: 'M', diff: '@@ -1,2 +1 @@\n-new\n-extra\n+working\n' },
+    { path: 'new.txt', section: 'untracked', status: '?', diff: '@@ -0,0 +1 @@\n+hello\n' },
+    { path: 'binary', section: 'staged', status: 'M', diff: 'Binary files a/binary and b/binary differ\n' },
+  ]);
+  await tick();
+  const summary = nodes.get('summary');
+  assert.equal(summary.children[0].textContent, '4 changed files');
+  assert.equal(summary.querySelectorAll('.stat-added')[0].textContent, '+4');
+  assert.equal(summary.querySelectorAll('.stat-deleted')[0].textContent, '−3');
+  assert.equal(summary.children[1].attributes['aria-label'], '4 added lines, 3 deleted lines');
+  nodes.get('files-view').listeners.click();
+  await tick();
+  snapshot.changes.splice(0, snapshot.changes.length, { path: 'new.txt', section: 'untracked', status: '?', diff: '@@ -0,0 +1 @@\n+hello\n' });
+  nodes.get('refresh').listeners.click();
+  await tick();
+  assert.equal(summary.children[0].textContent, '1 changed file');
+  assert.equal(summary.querySelectorAll('.stat-added')[0].textContent, '+1');
+  assert.equal(summary.querySelectorAll('.stat-deleted')[0].textContent, '−0');
+  snapshot.changes.length = 0;
+  nodes.get('refresh').listeners.click();
+  await tick();
+  assert.equal(summary.children[0].textContent, '0 changed files');
+  assert.equal(summary.querySelectorAll('.stat-added')[0].textContent, '+0');
+  assert.equal(summary.querySelectorAll('.stat-deleted')[0].textContent, '−0');
+});
+
 test('refresh preserves the selected section and clears vanished changes', async () => {
   const { nodes, snapshot } = setup([
     { path: 'same.txt', section: 'unstaged', status: 'M', diff: '+working tree\n' },
