@@ -378,7 +378,7 @@ async function showFile(path) {
         }
         selector.addEventListener('pointerdown', event => {
           cancelPress(); suppressClick = false;
-          if (!['touch', 'pen'].includes(event.pointerType) || event.isPrimary === false || event.button > 0) return;
+          if (!['touch', 'pen', 'mouse'].includes(event.pointerType) || event.isPrimary === false || event.button > 0) return;
           press = { id: event.pointerId, x: event.clientX, y: event.clientY };
           scroll.cancelLinePress = cancelPress;
           timer = setTimeout(() => {

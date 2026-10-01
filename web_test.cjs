@@ -624,6 +624,38 @@ test('long-press selects a range without the release click collapsing it', async
   selectors[0].listeners.pointerup();
 });
 
+test('desktop long-click extends ranges and suppresses the release click', async () => {
+  const { nodes, context, copied } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  const timers = pressTimers(context);
+  const selectors = nodes.get('diffs').querySelectorAll('.line-number');
+  const mouseDown = { ...touchDown, pointerType: 'mouse' };
+  selectors[0].listeners.click();
+  selectors[1].listeners.pointerdown(mouseDown);
+  timers.fire();
+  selectors[1].listeners.pointerup();
+  selectors[1].listeners.click({ preventDefault() {} });
+  const copy = nodes.get('diffs').querySelectorAll('.copy-lines')[0];
+  assert.equal(copy.textContent, 'Copy lines 1–2');
+  copy.listeners.click();
+  await tick();
+  assert.equal(copied.at(-1), '<script>safe text</script>\nsecond line\n');
+  selectors[1].listeners.pointerdown(mouseDown);
+  selectors[1].listeners.pointerup();
+  assert.equal(timers.pending.size, 0);
+  selectors[1].listeners.click();
+  assert.equal(copy.textContent, 'Copy line 2');
+  selectors[0].listeners.pointerdown(mouseDown);
+  timers.fire();
+  selectors[0].listeners.pointerup();
+  selectors[0].listeners.click({ preventDefault() {} });
+  assert.equal(copy.textContent, 'Copy lines 1–2');
+});
+
 test('long-press cancels on scrolling, early release, pointer cancellation, and navigation', async () => {
   const { nodes, context } = setup();
   await tick();
@@ -641,7 +673,7 @@ test('long-press cancels on scrolling, early release, pointer cancellation, and 
     timers.fire();
     assert.equal(nodes.get('diffs').querySelectorAll('.copy-lines')[0].textContent, 'Copy line 1');
   }
-  for (const event of [{ ...touchDown, pointerType: 'mouse' }, { ...touchDown, isPrimary: false }]) {
+  for (const event of [{ ...touchDown, pointerType: 'mouse', button: 2 }, { ...touchDown, pointerType: 'mouse', button: 1 }, { ...touchDown, isPrimary: false }]) {
     selectors[1].listeners.pointerdown(event);
     assert.equal(timers.pending.size, 0);
   }
