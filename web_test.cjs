@@ -56,6 +56,60 @@ function setup(changes = []) {
   return { nodes, context, calls, snapshot, paths, copied };
 }
 
+test('code view stays hidden without a selection and closing a diff clears selection', async () => {
+  const { nodes } = setup([
+    { path: 'first.txt', section: 'unstaged', status: 'M', diff: '@@ -1 +1 @@\n-old\n+new\n' },
+  ]);
+  await tick();
+  assert.equal(nodes.get('code-view').hidden, true);
+  assert.equal(nodes.get('workspace').dataset.codeOpen, 'false');
+  const link = nodes.get('files').querySelectorAll('.file-link')[0];
+  link.listeners.click();
+  assert.equal(nodes.get('code-view').hidden, false);
+  nodes.get('close-code').listeners.click();
+  assert.equal(nodes.get('code-view').hidden, true);
+  assert.equal(nodes.get('workspace').dataset.codeOpen, 'false');
+  assert.equal(link.attributes['aria-current'], undefined);
+  assert.equal(link.focused, true);
+  nodes.get('refresh').listeners.click();
+  await tick();
+  assert.equal(nodes.get('code-view').hidden, true);
+  nodes.get('files').querySelectorAll('.file-link')[0].listeners.click();
+  assert.equal(nodes.get('code-view').hidden, false);
+});
+
+test('closing a loading file cancels its preview and preserves the expanded tree', async () => {
+  const { nodes, context } = setup();
+  await tick();
+  nodes.get('files-view').listeners.click();
+  await tick();
+  assert.equal(nodes.get('code-view').hidden, true);
+  const folder = nodes.get('files').querySelectorAll('.tree-folder')[0];
+  folder.open = true; folder.listeners.toggle();
+  const button = nodes.get('files').querySelectorAll('.tree-file').find(node => node.dataset.path === 'src/new + #.js');
+  let resolve;
+  const fetch = context.fetch;
+  context.fetch = () => new Promise(done => { resolve = done; });
+  button.listeners.click();
+  assert.equal(nodes.get('code-view').hidden, false);
+  nodes.get('close-code').listeners.click();
+  resolve({ ok: true, json: async () => ({ path: button.dataset.path, content: 'late content' }) });
+  await tick();
+  assert.equal(nodes.get('code-view').hidden, true);
+  assert.equal(nodes.get('diffs').childElementCount, 0);
+  assert.equal(nodes.get('diffs').attributes['aria-busy'], 'false');
+  assert.equal(button.attributes['aria-current'], undefined);
+  assert.equal(button.focused, true);
+  assert.equal(folder.open, true);
+  context.fetch = fetch;
+  nodes.get('refresh').listeners.click();
+  await tick();
+  assert.equal(nodes.get('code-view').hidden, true);
+  nodes.get('files').querySelectorAll('.tree-file')[0].listeners.click();
+  await tick();
+  assert.equal(nodes.get('code-view').hidden, false);
+});
+
 test('browse folders and unchanged files, then return to diffs', async () => {
   const { nodes, calls } = setup();
   await tick();
@@ -602,16 +656,23 @@ test('history lists branches and commits, opens a diff, and ignores late respons
   nodes.get('history-view').listeners.click();
   await tick();
   assert.equal(nodes.get('history-view').attributes['aria-pressed'], 'true');
+  assert.equal(nodes.get('code-view').hidden, true);
   let buttons = nodes.get('files').querySelectorAll('.commit-link');
   assert.equal(buttons[0].children[0].textContent, commit.subject);
   buttons[0].listeners.click();
   await tick();
   assert.equal(nodes.get('diffs').querySelectorAll('.stat-added')[0].textContent, '+1');
   assert.equal(buttons[0].attributes['aria-current'], 'true');
+  assert.equal(nodes.get('code-view').hidden, false);
+  nodes.get('close-code').listeners.click();
+  assert.equal(nodes.get('code-view').hidden, true);
+  assert.equal(buttons[0].attributes['aria-current'], undefined);
+  assert.equal(buttons[0].focused, true);
   const branch = nodes.get('files').querySelectorAll('.history-branch')[0];
   branch.value = 'feature/test'; branch.listeners.change();
   await tick();
   assert.ok(calls.includes('/api/history?branch=feature%2Ftest'));
+  assert.equal(nodes.get('code-view').hidden, true);
   let resolve;
   context.fetch = () => new Promise(done => { resolve = done; });
   nodes.get('files').querySelectorAll('.commit-link')[0].listeners.click();

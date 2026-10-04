@@ -24,6 +24,13 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .tree-file.tree-modified, .tree-folder summary.tree-modified { color: #edc780; }
 .viewer-heading { position: sticky; top: 0; z-index: 2; background: #192332; margin: 0; padding: 8px 10px; font-size: 12px; text-transform: none; letter-spacing: normal; color: #dce5ef; }
 main { display: grid; grid-template-columns: 208px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
+main[data-code-open="false"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+#code-view { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+#code-view[hidden] { display: none; }
+.viewer-toolbar { position: absolute; top: 8px; right: 10px; z-index: 3; }
+#close-code { padding: 2px 6px; font-size: 11px; font-weight: bold; touch-action: manipulation; }
+#diffs > .notice { padding-right: 44px; }
+.viewer-heading .viewer-toolbar { position: static; display: inline-flex; flex-shrink: 0; }
 nav { min-width: 0; min-height: 0; padding: 2px; border-right: 1px solid #2a3545; overflow: auto; }
 h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #9aaabd; padding: 4px 6px; margin: 8px 0 2px; }
 nav h2 { padding: 1px 4px; margin: 3px 0 0; font-size: 10px; line-height: 14px; letter-spacing: .04em; }
@@ -58,7 +65,7 @@ nav .badge, nav .diff-stats { font-size: 10px; }
 .path { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .badge { flex-shrink: 0; font-size: 11px; color: #edc780; font-weight: 600; }
 .status-A, .status-\? { color: #80d5a1; } .status-D { color: #f49ca1; }
-#diffs { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 0; overflow: auto; }
+#diffs { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; padding: 0; overflow: auto; }
 .file { flex: 1 0 auto; overflow: clip; }
 summary { cursor: pointer; background: #192332; padding: 6px 10px; font-size: 12px; }
 summary .badge { margin-right: 8px; }
@@ -100,6 +107,7 @@ summary .badge { margin-right: 8px; }
   nav { border-right: 0; border-bottom: 1px solid #2a3545; }
   #error { margin: 8px; }
   .view-switch button { min-height: 32px; }
+  #close-code { min-height: 32px; }
 }
 /* Also cover touch-enabled tablets/laptops, not just narrow phone screens. */
 @media (max-width: 760px), (any-pointer: coarse) {
@@ -115,7 +123,9 @@ summary .badge { margin-right: 8px; }
   .source { line-height: 1.8; }
   .line-number { min-width: 44px; min-height: 1.8em; touch-action: manipulation; -webkit-touch-callout: none; }
   .viewer-heading { padding: 6px 8px; gap: 4px; }
-  .viewer-heading .open-in-files, .viewer-heading .copy-lines { min-height: 32px; padding: 6px 8px; font-size: 12px; touch-action: manipulation; }
+  .viewer-toolbar { top: 6px; right: 8px; }
+  #code-view .viewer-heading, #diffs > .notice { min-height: 40px; }
+  .viewer-heading .open-in-files, .viewer-heading .copy-lines, #close-code { min-height: 32px; padding: 6px 8px; font-size: 12px; touch-action: manipulation; }
   .code-zoom button { min-width: 32px; min-height: 32px; padding: 6px; font-size: 12px; touch-action: manipulation; }
 }
 @media (min-width: 761px) and (any-pointer: coarse) {

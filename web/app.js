@@ -12,6 +12,36 @@ let historyBranch = '', selectedCommit = null;
 let codeFontSize = 12;
 const minCodeFontSize = 3, maxCodeFontSize = 24;
 const openFolders = new Set();
+function replaceDiffs(...nodes) {
+  // Keep the shared close control alive when replacing the previous preview.
+  const toolbar = $('viewer-toolbar');
+  $('code-view').append(toolbar);
+  $('diffs').replaceChildren(...nodes);
+  const heading = $('diffs').querySelectorAll('.viewer-heading')[0];
+  if (heading) {
+    const open = heading.querySelectorAll('.open-in-files')[0];
+    if (open && open.after) open.after(toolbar);
+    else heading.append(toolbar);
+  }
+}
+
+function setCodeVisible(visible) {
+  $('code-view').hidden = !visible;
+  $('workspace').dataset.codeOpen = String(visible);
+}
+
+function closeCodeView() {
+  const selected = [...$('files').querySelectorAll('.tree-file'), ...$('files').querySelectorAll('.file-link'), ...$('files').querySelectorAll('.commit-link')]
+    .find(button => button.dataset.path === selectedPath || button.dataset.change === selectedChange || button.dataset.hash === selectedCommit);
+  selectedPath = null; selectedChange = null; selectedCommit = null;
+  ++fileRequest;
+  $('diffs').setAttribute('aria-busy', 'false');
+  replaceDiffs();
+  for (const button of [...$('files').querySelectorAll('.tree-file'), ...$('files').querySelectorAll('.file-link'), ...$('files').querySelectorAll('.commit-link')]) button.removeAttribute('aria-current');
+  setCodeVisible(false);
+  selected?.focus({ preventScroll: true });
+}
+
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -185,10 +215,11 @@ function render(data) {
     lineStats(totals),
   );
   if (view !== 'changes') return;
-  $('files').replaceChildren(); $('diffs').replaceChildren();
+  $('files').replaceChildren(); replaceDiffs();
   if (!data.changes.length) {
     $('diffs').append(element('div', 'empty', 'Working tree is clean. Refresh to check for changes.'));
     selectedChange = null;
+    setCodeVisible(false);
     return;
   }
   let selection = null;
@@ -209,11 +240,13 @@ function render(data) {
   if (selection) showChange(selection);
   else {
     selectedChange = null;
+    setCodeVisible(false);
     $('diffs').append(element('div', 'empty', 'Select a changed file to view its diff.'));
   }
 }
 
 function showChange(change) {
+  setCodeVisible(true);
   selectedChange = JSON.stringify([change.section, change.path]);
   for (const link of $('files').querySelectorAll('.file-link')) {
     if (link.dataset.change === selectedChange) link.setAttribute('aria-current', 'true');
@@ -233,7 +266,7 @@ function showChange(change) {
     heading.append(codeZoomControls());
     const scroll = codeScroll(); scroll.append(renderPatch(change.diff)); panel.append(scroll);
   } else if (!change.notice) panel.append(element('p', 'notice', 'No textual changes (file mode or metadata changed).'));
-  $('diffs').replaceChildren(panel);
+  replaceDiffs(panel);
   updateCodeZoom();
 }
 
@@ -302,11 +335,12 @@ function renderTree(paths) {
 }
 
 async function showFile(path) {
+  setCodeVisible(true);
   selectedPath = path;
   markSelectedFile();
   const request = ++fileRequest;
   $('diffs').setAttribute('aria-busy', 'true');
-  $('diffs').replaceChildren(element('p', 'notice', `Loading ${path}…`));
+  replaceDiffs(element('p', 'notice', `Loading ${path}…`));
   try {
     const file = await requestJSON('/api/file?path=' + encodeURIComponent(path));
     if (request !== fileRequest || view !== 'files') return;
@@ -419,10 +453,10 @@ async function showFile(path) {
       table.append(body); scroll.append(table); panel.append(scroll);
     }
     heading.append(feedback);
-    $('diffs').replaceChildren(panel);
+    replaceDiffs(panel);
     updateCodeZoom();
   } catch (err) {
-    if (request === fileRequest && view === 'files') $('diffs').replaceChildren(element('p', 'notice', `Could not open ${path}: ${err.message}`));
+    if (request === fileRequest && view === 'files') replaceDiffs(element('p', 'notice', `Could not open ${path}: ${err.message}`));
   } finally {
     if (request === fileRequest) $('diffs').setAttribute('aria-busy', 'false');
   }
@@ -436,13 +470,14 @@ function openInFiles(path) {
 }
 
 async function showCommit(commit) {
+  setCodeVisible(true);
   selectedCommit = commit.hash;
   const request = ++fileRequest;
   for (const button of $('files').querySelectorAll('.commit-link')) {
     button.setAttribute('aria-current', String(button.dataset.hash === commit.hash));
   }
   $('diffs').setAttribute('aria-busy', 'true');
-  $('diffs').replaceChildren(element('p', 'notice', 'Loading commit…'));
+  replaceDiffs(element('p', 'notice', 'Loading commit…'));
   try {
     const data = await requestJSON('/api/commit?hash=' + encodeURIComponent(commit.hash));
     if (request !== fileRequest || view !== 'history') return;
@@ -451,10 +486,10 @@ async function showCommit(commit) {
     heading.append(element('span', 'path', commit.subject), lineStats(diffStats(data.diff)), codeZoomControls());
     const scroll = codeScroll(); scroll.append(renderPatch(data.diff));
     panel.append(heading, scroll);
-    $('diffs').replaceChildren(panel);
+    replaceDiffs(panel);
     updateCodeZoom();
   } catch (err) {
-    if (request === fileRequest && view === 'history') $('diffs').replaceChildren(element('p', 'notice', `Could not load commit: ${err.message}`));
+    if (request === fileRequest && view === 'history') replaceDiffs(element('p', 'notice', `Could not load commit: ${err.message}`));
   } finally {
     if (request === fileRequest) $('diffs').setAttribute('aria-busy', 'false');
   }
@@ -462,6 +497,7 @@ async function showCommit(commit) {
 
 async function loadHistory() {
   const request = ++treeRequest;
+  setCodeVisible(false);
   ++fileRequest;
   $('diffs').setAttribute('aria-busy', 'false');
   $('files').replaceChildren(element('p', 'notice', 'Loading history…'));
@@ -477,7 +513,7 @@ async function loadHistory() {
     branch.value = historyBranch;
     branch.addEventListener('change', () => { historyBranch = branch.value; selectedCommit = null; loadHistory(); });
     $('files').replaceChildren(branch, element('h2', '', 'Recent commits · ' + data.commits.length));
-    $('diffs').replaceChildren(element('div', 'empty', data.commits.length ? 'Select a commit to view its diff. Showing up to 100 recent commits.' : 'No commits on this branch.'));
+    replaceDiffs(element('div', 'empty', data.commits.length ? 'Select a commit to view its diff. Showing up to 100 recent commits.' : 'No commits on this branch.'));
     for (const commit of data.commits) {
       const button = element('button', 'commit-link'); button.type = 'button'; button.dataset.hash = commit.hash;
       button.append(element('span', 'commit-subject', commit.subject), element('span', 'commit-meta', `${commit.hash.slice(0, 8)} · ${commit.author} · ${new Date(commit.date).toLocaleDateString()}`));
@@ -488,7 +524,7 @@ async function loadHistory() {
     }
     const selection = data.commits.find(commit => commit.hash === selectedCommit);
     if (selection) await showCommit(selection);
-    else selectedCommit = null;
+    else { selectedCommit = null; setCodeVisible(false); }
   } catch (err) {
     if (request === treeRequest && view === 'history') $('files').replaceChildren(element('p', 'notice', `Could not load history: ${err.message}`));
   }
@@ -507,9 +543,10 @@ async function loadFiles(revealPath = null) {
     if (selectedPath && paths.includes(selectedPath)) await showFile(selectedPath);
     else {
       selectedPath = null;
+      setCodeVisible(false);
       ++fileRequest;
       $('diffs').setAttribute('aria-busy', 'false');
-      $('diffs').replaceChildren(element('div', 'empty', revealPath ? `${revealPath} is no longer available in the repository file list. Its diff is still available in Changes.` : paths.length ? 'Select a file to view its current contents.' : 'No repository files.'));
+      replaceDiffs(element('div', 'empty', revealPath ? `${revealPath} is no longer available in the repository file list. Its diff is still available in Changes.` : paths.length ? 'Select a file to view its current contents.' : 'No repository files.'));
     }
   } catch (err) {
     if (request === treeRequest && view === 'files') {
@@ -521,6 +558,7 @@ async function loadFiles(revealPath = null) {
 function setView(next, revealPath = null) {
   if (view === next) return;
   view = next; ++fileRequest; ++treeRequest;
+  setCodeVisible(false);
   $('diffs').setAttribute('aria-busy', 'false');
   $('changes-view').setAttribute('aria-pressed', String(view === 'changes'));
   $('files-view').setAttribute('aria-pressed', String(view === 'files'));
@@ -531,7 +569,7 @@ function setView(next, revealPath = null) {
   else if (view === 'history') loadHistory();
   else {
     $('files').replaceChildren(element('p', 'notice', 'Loading files…'));
-    $('diffs').replaceChildren(element('div', 'empty', 'Select a file to view its current contents.'));
+    replaceDiffs(element('div', 'empty', 'Select a file to view its current contents.'));
     loadFiles(revealPath);
   }
 }
@@ -557,4 +595,5 @@ $('refresh').addEventListener('click', () => load(true));
 $('changes-view').addEventListener('click', () => setView('changes'));
 $('files-view').addEventListener('click', () => setView('files'));
 $('history-view').addEventListener('click', () => setView('history'));
+$('close-code').addEventListener('click', closeCodeView);
 load();
